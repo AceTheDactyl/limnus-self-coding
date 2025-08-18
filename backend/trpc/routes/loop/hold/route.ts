@@ -8,7 +8,7 @@ const loopHoldSchema = z.object({
 });
 
 // Store active holds for server-side timer fallback
-const activeHolds = new Map<string, { startTime: number; duration: number; timerId: NodeJS.Timeout }>();
+const activeHolds = new Map<string, { startTime: number; duration: number; timerId?: NodeJS.Timeout }>();
 
 export const loopHoldProcedure = publicProcedure
   .input(loopHoldSchema)

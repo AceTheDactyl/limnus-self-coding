@@ -84,6 +84,18 @@ export type SessionPhase = 'INIT' | 'CONSENTED' | 'REFLECTION_READY' | 'PLANNED'
 export interface ConsentRequest {
   phrase: string;
   sigprint: string;
+  nonce?: string;
+  deviceId?: string;
+}
+
+export interface NonceRequest {
+  deviceId?: string;
+}
+
+export interface NonceResponse {
+  nonce: string;
+  expiresAt: string;
+  validFor?: number;
 }
 
 export interface TDExtractionRequest {

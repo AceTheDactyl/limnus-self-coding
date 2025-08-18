@@ -1,6 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Device from 'expo-device';
 import { trpc } from '@/lib/trpc';
 import type { Session } from '@/types/limnus';
 
@@ -72,6 +73,7 @@ export const [LimnusProvider, useLimnus] = createContextHook(() => {
     }
   };
 
+  const nonceMutation = trpc.limnus.utils.nonce.useMutation();
   const consentMutation = trpc.limnus.consent.start.useMutation({
     onSuccess: async (session: Session) => {
       console.log('[LIMNUS] Session created successfully:', session.session_id);
@@ -102,19 +104,31 @@ export const [LimnusProvider, useLimnus] = createContextHook(() => {
   });
 
   const startSession = useCallback(async (consentPhrase: string) => {
-    console.log('[LIMNUS] Starting session with phrase...');
+    console.log('[LIMNUS] Starting session with nonce-protected consent...');
     try {
+      // Generate device ID
+      const deviceId = Device.osInternalBuildId || Device.modelId || 'unknown';
+      
+      // Get fresh nonce
+      console.log('[LIMNUS] Requesting nonce...');
+      const nonceResult = await nonceMutation.mutateAsync({ deviceId });
+      console.log('[LIMNUS] Nonce received, expires at:', nonceResult.expiresAt);
+      
+      // Use nonce for consent
       const result = await consentMutation.mutateAsync({
         phrase: consentPhrase,
-        sigprint: 'MTISOBSGLCLC5N8R2Q7VK'
+        sigprint: 'MTISOBSGLCLC5N8R2Q7VK',
+        nonce: nonceResult.nonce,
+        deviceId
       });
+      
       console.log('[LIMNUS] Session mutation completed successfully');
       return result;
     } catch (error) {
       console.error('[LIMNUS] Session mutation failed:', error);
       throw error;
     }
-  }, [consentMutation]);
+  }, [consentMutation, nonceMutation]);
 
   const extractTeachingDirectives = useCallback(async (mythicResponse: string) => {
     // Simulate extraction of teaching directives

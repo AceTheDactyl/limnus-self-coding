@@ -30,10 +30,10 @@ export const loopHoldProcedure = publicProcedure
     }, input.duration * 1000);
     
     // Store hold info for server-side fallback
-    const holdInfo: { startTime: number; duration: number; timerId?: NodeJS.Timeout } = {
+    const holdInfo = {
       startTime: holdStartedAt.getTime(),
       duration: input.duration,
-      timerId
+      timerId: timerId as NodeJS.Timeout
     };
     
     activeHolds.set(input.session_id, holdInfo);

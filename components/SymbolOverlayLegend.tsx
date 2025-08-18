@@ -14,7 +14,9 @@ interface SymbolOverlayLegendProps {
   overlays: SymbolicOverlay[];
   onFilterChange?: (activeFilters: SymbolicOverlay[]) => void;
   showCounts?: boolean;
-  counts?: Record<SymbolicOverlay, number>;
+  counts?: Partial<Record<SymbolicOverlay, number>>;
+  rationale?: string;
+  testLines?: string[];
 }
 
 const SYMBOL_CONFIG = {
@@ -57,6 +59,8 @@ export default function SymbolOverlayLegend({
   onFilterChange,
   showCounts = false,
   counts,
+  rationale,
+  testLines,
 }: SymbolOverlayLegendProps) {
   const [activeFilters, setActiveFilters] = useState<SymbolicOverlay[]>([]);
   const [scaleAnims] = useState(() =>
@@ -92,6 +96,36 @@ export default function SymbolOverlayLegend({
   const isActive = (overlay: SymbolicOverlay) => {
     return activeFilters.length === 0 || activeFilters.includes(overlay);
   };
+
+  // Filter content based on active filters
+  const getFilteredContent = () => {
+    if (activeFilters.length === 0) {
+      return { rationale, testLines };
+    }
+
+    const filteredRationale = rationale?.split('\n')
+      .filter(line => 
+        activeFilters.some(filter => 
+          line.toLowerCase().includes(filter.toLowerCase()) ||
+          line.includes(SYMBOL_CONFIG[filter].tag)
+        )
+      )
+      .join('\n');
+
+    const filteredTests = testLines?.filter(test =>
+      activeFilters.some(filter =>
+        test.toLowerCase().includes(filter.toLowerCase()) ||
+        test.includes(SYMBOL_CONFIG[filter].tag)
+      )
+    );
+
+    return { 
+      rationale: filteredRationale, 
+      testLines: filteredTests 
+    };
+  };
+
+  const { rationale: filteredRationale, testLines: filteredTests } = getFilteredContent();
 
   return (
     <View style={styles.container}>
@@ -160,15 +194,37 @@ export default function SymbolOverlayLegend({
       </View>
       
       {activeFilters.length > 0 && (
-        <TouchableOpacity
-          style={styles.clearButton}
-          onPress={() => {
-            setActiveFilters([]);
-            onFilterChange?.([]);
-          }}
-        >
-          <Text style={styles.clearButtonText}>Clear Filters</Text>
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={() => {
+              setActiveFilters([]);
+              onFilterChange?.([]);
+            }}
+          >
+            <Text style={styles.clearButtonText}>Clear Filters ({activeFilters.length} active)</Text>
+          </TouchableOpacity>
+          
+          {(filteredRationale || filteredTests) && (
+            <View style={styles.filteredContent}>
+              <Text style={styles.filteredTitle}>Filtered Content</Text>
+              {filteredRationale && (
+                <View style={styles.filteredSection}>
+                  <Text style={styles.filteredSectionTitle}>Rationale</Text>
+                  <Text style={styles.filteredText}>{filteredRationale}</Text>
+                </View>
+              )}
+              {filteredTests && filteredTests.length > 0 && (
+                <View style={styles.filteredSection}>
+                  <Text style={styles.filteredSectionTitle}>Tests ({filteredTests.length})</Text>
+                  {filteredTests.map((test, index) => (
+                    <Text key={index} style={styles.filteredTest}>• {test}</Text>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+        </>
       )}
     </View>
   );
@@ -239,5 +295,39 @@ const styles = StyleSheet.create({
     color: '#888',
     fontSize: 12,
     fontWeight: '500',
+  },
+  filteredContent: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  filteredTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 12,
+  },
+  filteredSection: {
+    marginBottom: 12,
+  },
+  filteredSectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#888',
+    marginBottom: 6,
+  },
+  filteredText: {
+    fontSize: 12,
+    color: '#aaa',
+    lineHeight: 16,
+  },
+  filteredTest: {
+    fontSize: 11,
+    color: '#999',
+    lineHeight: 14,
+    marginBottom: 2,
   },
 });

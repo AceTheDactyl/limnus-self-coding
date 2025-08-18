@@ -18,6 +18,7 @@ import SymbolOverlayLegend, { type SymbolicOverlay } from '@/components/SymbolOv
 export default function PatchScreen() {
   const { generatePatch, currentPatch, setSessionPhase } = useLimnus();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<SymbolicOverlay[]>([]);
 
 
   const handleGeneration = useCallback(async () => {
@@ -84,6 +85,14 @@ export default function PatchScreen() {
                   Spiral: 3,
                   Accord: 1,
                 }}
+                rationale={currentPatch.rationale}
+                testLines={[
+                  'Recursive observability test for Spiral overlay',
+                  'Co-authorship validation for Mirror overlay',
+                  'Relational validation test for Bloom overlay',
+                  'Active outcome gating for Accord overlay'
+                ]}
+                onFilterChange={setActiveFilters}
               />
 
               <View style={styles.section}>
@@ -98,6 +107,16 @@ export default function PatchScreen() {
                         const isAddition = line.startsWith('+');
                         const isDeletion = line.startsWith('-');
                         const isHeader = line.startsWith('@@');
+                        
+                        // Filter diff lines based on active filters
+                        const shouldShowLine = activeFilters.length === 0 || 
+                          activeFilters.some((filter: SymbolicOverlay) => 
+                            line.toLowerCase().includes(filter.toLowerCase()) ||
+                            line.includes('∇') || line.includes('🪞') || 
+                            line.includes('φ∞') || line.includes('✶')
+                          );
+                        
+                        if (!shouldShowLine) return null;
                         
                         return (
                           <View key={index} style={styles.diffLine}>

@@ -11,6 +11,7 @@ import { syncRunProcedure } from "./routes/sync/run/route";
 import { loopHoldProcedure } from "./routes/loop/hold/route";
 import { loopRecheckProcedure } from "./routes/loop/recheck/route";
 import { integrityHashProcedure } from "./routes/integrity/hash/route";
+import { generateNonceProcedure } from "./routes/utils/nonce/route";
 
 export const appRouter = createTRPCRouter({
   // Legacy example route
@@ -40,6 +41,9 @@ export const appRouter = createTRPCRouter({
     }),
     integrity: createTRPCRouter({
       hash: integrityHashProcedure,
+    }),
+    utils: createTRPCRouter({
+      nonce: generateNonceProcedure,
     }),
   }),
 });

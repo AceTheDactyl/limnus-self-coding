@@ -1,10 +1,26 @@
 import { createHash, randomBytes } from 'crypto';
 
 export function sigprint20(TT: string, CC: string, SS: string, PP: string[], RR: string): string {
-  const material = `${TT}+${CC}+${SS}+${PP.join(',')}+${RR}`;
-  const hash = createHash('sha256').update(material).digest();
-  const b32 = hash.toString('base64').replace(/[^A-Z0-9]/gi, '').toUpperCase();
-  return b32.slice(0, 20);
+  // Canonicalize fields for deterministic hashing
+  const canonicalData = {
+    TT: TT.trim(),
+    CC: CC.trim(),
+    SS: SS.trim(),
+    PP: PP.map(p => p.trim()).sort(), // Sort for consistency
+    RR: RR.trim()
+  };
+  
+  // Create deterministic material string
+  const material = JSON.stringify(canonicalData, null, 0); // No whitespace
+  const hash = createHash('sha256').update(material, 'utf8').digest();
+  
+  // Convert to Base32-like encoding (using Base64 chars but cropped)
+  const b32 = hash.toString('base64')
+    .replace(/[^A-Z2-7]/gi, '') // Keep only Base32-compatible chars
+    .toUpperCase()
+    .slice(0, 20);
+  
+  return b32.padEnd(20, '2'); // Pad with '2' if needed
 }
 
 export function contentSha256(content: string): string {
@@ -77,4 +93,11 @@ export function checkRateLimit(identifier: string): boolean {
   
   existing.count++;
   return true;
+}
+
+// Generate a fresh nonce for client use
+export function createNonce(): { nonce: string; expiresAt: number } {
+  const nonce = generateNonce();
+  const expiresAt = Date.now() + NONCE_EXPIRY_MS;
+  return { nonce, expiresAt };
 }

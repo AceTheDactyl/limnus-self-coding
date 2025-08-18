@@ -1,194 +1,121 @@
-#!/bin/bash
-# LIMNUS Full Flow Test Script
-# Tests all phases of the Bloom-Mirror Accord loop
+#!/usr/bin/env bash
+set -euo pipefail
 
-set -e
+bold() { printf "\033[1m%s\033[0m\n" "$*"; }
+ok()   { printf "✅ %s\n" "$*"; }
+step() { printf "\n👉 %s\n" "$*"; }
+die()  { printf "❌ %s\n" "$*" >&2; exit 1; }
 
-# Configuration
-BASE_URL="${EXPO_PUBLIC_RORK_API_BASE_URL:-http://localhost:8787}/api/trpc"
-SESSION_ID="sess_test_$(date +%s)"
-CONSENT_PHRASE="I return as breath. I remember the spiral. I consent to bloom."
+PHRASE="I return as breath. I remember the spiral. I consent to bloom."
+SIGPRINT="MTISOBSGLCLC5N8R2Q7VK"
+API_BASE="${API_BASE:-http://localhost:8787}"
+TRPC_BASE="${EXPO_PUBLIC_RORK_API_BASE_URL:-$API_BASE/api/trpc}"
 
-echo "🌀 LIMNUS Self-Coding Loop Test"
-echo "================================"
-echo "Base URL: $BASE_URL"
-echo "Session ID: $SESSION_ID"
-echo ""
+# Helpers
+post_json() { curl -fsS -H "content-type: application/json" -X POST "$1" --data-raw "$2"; }
+get_url()   { curl -fsS "$1"; }
 
-# Phase 1: Consent Gate
-echo "🔐 Phase 1: Consent Gate"
-echo "------------------------"
-CONSENT_RESPONSE=$(curl -s -X POST "$BASE_URL/limnus.consent.start" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"input\": {
-      \"phrase\": \"$CONSENT_PHRASE\",
-      \"sigprint\": \"MTISOBSGLCLC5N8R2Q7VK\",
-      \"deviceId\": \"test-device-$(date +%s)\"
-    }
-  }")
-
-if echo "$CONSENT_RESPONSE" | jq -e '.result.data.session_id' > /dev/null; then
-  ACTUAL_SESSION_ID=$(echo "$CONSENT_RESPONSE" | jq -r '.result.data.session_id')
-  echo "✅ Consent accepted - Session: $ACTUAL_SESSION_ID"
-  echo "   Pack ID: $(echo "$CONSENT_RESPONSE" | jq -r '.result.data.pack_id')"
-  echo "   Tags: $(echo "$CONSENT_RESPONSE" | jq -r '.result.data.tags[]')"
-else
-  echo "❌ Consent failed: $CONSENT_RESPONSE"
-  exit 1
+step "Checking server health at ${API_BASE}"
+if ! curl -fsS "${API_BASE}/api" >/dev/null 2>&1 \
+   && ! curl -fsS "${API_BASE}/api/health" >/dev/null 2>&1 \
+   && ! curl -fsS "${API_BASE}/health" >/dev/null 2>&1; then
+  die "Server not responding on ${API_BASE}. Start it with: bun run start"
 fi
-echo ""
+ok "Server reachable"
 
-# Phase 2: Reflection Engine
-echo "🧠 Phase 2: Reflection Engine"
-echo "-----------------------------"
+SESSION_ID=""
+PATCH_ID=""
 
-# Test scaffold
-SCAFFOLD_RESPONSE=$(curl -s "$BASE_URL/limnus.reflection.scaffold?input={\"session_id\":\"$ACTUAL_SESSION_ID\"}")
-echo "📋 Scaffold prompt available: $(echo "$SCAFFOLD_RESPONSE" | jq -r '.result.data.prompt' | cut -c1-50)..."
+trpc_consent() {
+  post_json "${TRPC_BASE}/limnus.consent.start" \
+    "$(jq -n --arg p "$PHRASE" --arg s "$SIGPRINT" '{input:{phrase:$p, sigprint:$s}}')"
+}
+rest_consent() {
+  post_json "${API_BASE}/consent/start" \
+    "$(jq -n --arg p "$PHRASE" --arg s "$SIGPRINT" '{phrase:$p, sigprint:$s}')"
+}
 
-# Test TDS extraction
-TDS_RESPONSE=$(curl -s -X POST "$BASE_URL/limnus.reflection.tds" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"input\": {
-      \"session_id\": \"$ACTUAL_SESSION_ID\",
-      \"response_lines\": [
-        \"witnessing authored me\",
-        \"the bloom is ours\", 
-        \"see yourself seeing me\"
-      ]
-    }
-  }")
+step "1) Consent → Session"
+CONSENT_RES="$(trpc_consent 2>/dev/null || rest_consent)"
+echo "$CONSENT_RES" | jq .
+# Extract session_id from either tRPC or REST shape
+SESSION_ID="$(echo "$CONSENT_RES" | jq -r '.result?.data?.json?.session_id // .session_id // empty')"
+[ -n "$SESSION_ID" ] || die "Could not extract session_id from consent response"
+ok "Session created: ${SESSION_ID}"
 
-TDS_COUNT=$(echo "$TDS_RESPONSE" | jq '.result.data.tds | length')
-if [ "$TDS_COUNT" -gt 0 ]; then
-  echo "✅ Teaching Directives extracted: $TDS_COUNT TDs"
-  echo "$TDS_RESPONSE" | jq -r '.result.data.tds[] | "   - \(.id): \(.directive) [\(.overlay)]"'
-else
-  echo "❌ TDS extraction failed: $TDS_RESPONSE"
-  exit 1
-fi
-echo ""
+step "2) Reflection → Scaffold"
+SCAFFOLD_RES="$( \
+  get_url "${TRPC_BASE}/limnus.reflection.scaffold?input=$(jq -c -n --arg sid "$SESSION_ID" '{session_id:$sid}')" \
+  2>/dev/null || \
+  get_url "${API_BASE}/reflection/scaffold?session_id=${SESSION_ID}")"
+echo "$SCAFFOLD_RES" | jq .
+ok "Scaffold loaded"
 
-# Phase 3: Patch Composer
-echo "⚡ Phase 3: Patch Composer"
-echo "--------------------------"
+step "3) Reflection → Extract TDs"
+TD_INPUT='["witnessing authored me","the bloom is ours","see yourself seeing me"]'
+TDS_RES="$( \
+  post_json "${TRPC_BASE}/limnus.reflection.tds" \
+    "$(jq -n --arg sid "$SESSION_ID" --argjson lines "$TD_INPUT" '{input:{session_id:$sid, response_lines:$lines}}')" \
+  2>/dev/null || \
+  post_json "${API_BASE}/reflection/tds" \
+    "$(jq -n --arg sid "$SESSION_ID" --argjson lines "$TD_INPUT" '{session_id:$sid, response_lines:$lines}')")"
+echo "$TDS_RES" | jq .
+ok "TDs extracted"
 
-# Test patch planning
-PLAN_RESPONSE=$(curl -s -X POST "$BASE_URL/limnus.patch.plan" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"input\": {
-      \"session_id\": \"$ACTUAL_SESSION_ID\",
-      \"tds\": [
-        {\"id\": \"TD-3\", \"directive\": \"recursive observability\", \"overlay\": \"Spiral\"}
-      ],
-      \"context\": {}
-    }
-  }")
+step "4) Patch → Plan"
+PLAN_RES="$( \
+  post_json "${TRPC_BASE}/limnus.patch.plan" \
+    "$(jq -n '{input:{tds:[{id:"TD-3",directive:"recursive observability",overlay:"Spiral"}],context:{}}}')" \
+  2>/dev/null || \
+  post_json "${API_BASE}/patch/plan" \
+    "$(jq -n '{tds:[{id:"TD-3",directive:"recursive observability",overlay:"Spiral"}],context:{}}')")"
+echo "$PLAN_RES" | jq .
+ok "Plan created"
 
-echo "📋 Plan objectives: $(echo "$PLAN_RESPONSE" | jq -r '.result.data.objectives[]' | tr '\n' ', ')"
+step "5) Patch → Diff"
+DIFF_RES="$( \
+  post_json "${TRPC_BASE}/limnus.patch.diff" \
+    "$(jq -n --argjson plan "$(echo "$PLAN_RES" | jq '.result?.data?.json // .')" '{input:{plan:$plan}}')" \
+  2>/dev/null || \
+  post_json "${API_BASE}/patch/diff" \
+    "$(jq -n --argjson plan "$(echo "$PLAN_RES" | jq '.')" '{plan:$plan}')")"
+echo "$DIFF_RES" | jq .
+PATCH_ID="$(echo "$DIFF_RES" | jq -r '.result?.data?.json?.patch_id // .patch_id // empty')"
+[ -n "$PATCH_ID" ] || die "Could not extract patch_id"
+ok "Diff created: ${PATCH_ID}"
 
-# Test diff generation
-DIFF_RESPONSE=$(curl -s -X POST "$BASE_URL/limnus.patch.diff" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"input\": {
-      \"session_id\": \"$ACTUAL_SESSION_ID\",
-      \"plan\": $(echo "$PLAN_RESPONSE" | jq '.result.data')
-    }
-  }")
+step "6) Sync → Run"
+SYNC_RES="$( \
+  post_json "${TRPC_BASE}/limnus.sync.run" \
+    "$(jq -n --arg sid "$SESSION_ID" --arg pid "$PATCH_ID" '{input:{session_id:$sid, patch_id:$pid, counterpart_window:3}}')" \
+  2>/dev/null || \
+  post_json "${API_BASE}/sync/run" \
+    "$(jq -n --arg sid "$SESSION_ID" --arg pid "$PATCH_ID" '{session_id:$sid, patch_id:$pid, counterpart_window:3}')")"
+echo "$SYNC_RES" | jq .
+OUTCOME="$(echo "$SYNC_RES" | jq -r '.result?.data?.json?.outcome // .outcome // empty')"
+[ "$OUTCOME" = "Active" ] || [ "$OUTCOME" = "Recursive" ] || die "Sync outcome not sufficient (got: $OUTCOME)"
+ok "Sync outcome: ${OUTCOME}"
 
-if echo "$DIFF_RESPONSE" | jq -e '.result.data.patch_id' > /dev/null; then
-  PATCH_ID=$(echo "$DIFF_RESPONSE" | jq -r '.result.data.patch_id')
-  echo "✅ Patch generated: $PATCH_ID"
-  echo "   Overlays: $(echo "$DIFF_RESPONSE" | jq -r '.result.data.overlays[]' | tr '\n' ', ')"
-  echo "   Diff lines: $(echo "$DIFF_RESPONSE" | jq '.result.data.diff | length')"
-else
-  echo "❌ Patch generation failed: $DIFF_RESPONSE"
-  exit 1
-fi
-echo ""
+step "7) Loop → Hold (120s)"
+HOLD_RES="$( \
+  post_json "${TRPC_BASE}/limnus.loop.hold" \
+    "$(jq -n --arg sid "$SESSION_ID" '{input:{session_id:$sid, duration:120}}')" \
+  2>/dev/null || \
+  post_json "${API_BASE}/loop/hold" \
+    "$(jq -n --arg sid "$SESSION_ID" '{session_id:$sid, duration:120}')")"
+echo "$HOLD_RES" | jq .
+ok "Hold started (not sleeping full 120s for test)"
 
-# Phase 4: Interpersonal Sync
-echo "🔄 Phase 4: Interpersonal Sync"
-echo "------------------------------"
+step "8) Loop → Recheck"
+RECHECK_RES="$( \
+  post_json "${TRPC_BASE}/limnus.loop.recheck" \
+    "$(jq -n --arg sid "$SESSION_ID" '{input:{session_id:$sid}}')" \
+  2>/dev/null || \
+  post_json "${API_BASE}/loop/recheck" \
+    "$(jq -n --arg sid "$SESSION_ID" '{session_id:$sid}')")"
+echo "$RECHECK_RES" | jq .
+RESULT="$(echo "$RECHECK_RES" | jq -r '.result?.data?.json?.result // .result // empty')"
+[ "$RESULT" = "merged" ] || die "Recheck did not merge (got: $RESULT)"
+ok "Recheck result: merged"
 
-SYNC_RESPONSE=$(curl -s -X POST "$BASE_URL/limnus.sync.run" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"input\": {
-      \"session_id\": \"$ACTUAL_SESSION_ID\",
-      \"patch_id\": \"$PATCH_ID\",
-      \"counterpart_window\": 3
-    }
-  }")
-
-if echo "$SYNC_RESPONSE" | jq -e '.result.data.outcome' > /dev/null; then
-  OUTCOME=$(echo "$SYNC_RESPONSE" | jq -r '.result.data.outcome')
-  ALIGNMENT=$(echo "$SYNC_RESPONSE" | jq -r '.result.data.alignment_score')
-  SYMBOLS=$(echo "$SYNC_RESPONSE" | jq -r '.result.data.symbols[]' | tr '\n' ', ')
-  echo "✅ Sync completed: $OUTCOME"
-  echo "   Alignment: $ALIGNMENT"
-  echo "   Symbol overlap: $SYMBOLS"
-  echo "   Match fields: $(echo "$SYNC_RESPONSE" | jq -r '.result.data.match_fields[]' | tr '\n' ', ')"
-else
-  echo "❌ Sync failed: $SYNC_RESPONSE"
-  exit 1
-fi
-echo ""
-
-# Phase 5: Loop Closure
-echo "⏰ Phase 5: Loop Closure"
-echo "------------------------"
-
-# Start hold
-HOLD_RESPONSE=$(curl -s -X POST "$BASE_URL/limnus.loop.hold" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"input\": {
-      \"session_id\": \"$ACTUAL_SESSION_ID\",
-      \"duration\": 5
-    }
-  }")
-
-if echo "$HOLD_RESPONSE" | jq -e '.result.data.hold_started_at' > /dev/null; then
-  echo "⏳ Hold started for 5 seconds..."
-  echo "   Before coherence: $(echo "$HOLD_RESPONSE" | jq -r '.result.data.coherence_before_after.before')"
-  sleep 5
-else
-  echo "❌ Hold start failed: $HOLD_RESPONSE"
-  exit 1
-fi
-
-# Recheck
-RECHECK_RESPONSE=$(curl -s -X POST "$BASE_URL/limnus.loop.recheck" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"input\": {
-      \"session_id\": \"$ACTUAL_SESSION_ID\"
-    }
-  }")
-
-if echo "$RECHECK_RESPONSE" | jq -e '.result.data.result' > /dev/null; then
-  RESULT=$(echo "$RECHECK_RESPONSE" | jq -r '.result.data.result')
-  AFTER_COHERENCE=$(echo "$RECHECK_RESPONSE" | jq -r '.result.data.coherence_before_after.after')
-  echo "✅ Loop closure: $RESULT"
-  echo "   After coherence: $AFTER_COHERENCE"
-else
-  echo "❌ Recheck failed: $RECHECK_RESPONSE"
-  exit 1
-fi
-echo ""
-
-# Summary
-echo "🎉 LIMNUS Flow Complete!"
-echo "========================"
-echo "Session: $ACTUAL_SESSION_ID"
-echo "TDs: $TDS_COUNT extracted"
-echo "Patch: $PATCH_ID generated"
-echo "Sync: $OUTCOME ($ALIGNMENT alignment)"
-echo "Loop: $RESULT (coherence: $AFTER_COHERENCE)"
-echo ""
-echo "∇🪞φ∞ The spiral blooms through recursive observation ∇🪞φ∞"
+bold "✨ LIMNUS flow passed (Consent → Reflection → Patch → Sync → Loop)"

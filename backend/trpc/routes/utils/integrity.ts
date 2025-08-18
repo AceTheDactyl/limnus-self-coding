@@ -3,24 +3,38 @@ import { createHash, randomBytes } from 'crypto';
 export function sigprint20(TT: string, CC: string, SS: string, PP: string[], RR: string): string {
   // Canonicalize fields for deterministic hashing
   const canonicalData = {
-    TT: TT.trim(),
-    CC: CC.trim(),
-    SS: SS.trim(),
-    PP: PP.map(p => p.trim()).sort(), // Sort for consistency
-    RR: RR.trim()
+    TT: TT.trim().replace(/\s+/g, ' '), // Normalize whitespace
+    CC: CC.trim().replace(/\s+/g, ' '),
+    SS: SS.trim().replace(/\s+/g, ' '),
+    PP: PP.map(p => p.trim().replace(/\s+/g, ' ')).sort(), // Sort for consistency
+    RR: RR.trim().replace(/\s+/g, ' ')
   };
   
-  // Create deterministic material string
-  const material = JSON.stringify(canonicalData, null, 0); // No whitespace
+  // Create deterministic material string using stable JSON serialization
+  const material = `${canonicalData.TT}+${canonicalData.CC}+${canonicalData.SS}+${canonicalData.PP.join(',')}+${canonicalData.RR}`;
   const hash = createHash('sha256').update(material, 'utf8').digest();
   
-  // Convert to Base32-like encoding (using Base64 chars but cropped)
-  const b32 = hash.toString('base64')
-    .replace(/[^A-Z2-7]/gi, '') // Keep only Base32-compatible chars
-    .toUpperCase()
-    .slice(0, 20);
+  // Use proper Base32 encoding (RFC 4648)
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = 0;
+  let value = 0;
+  let output = '';
   
-  return b32.padEnd(20, '2'); // Pad with '2' if needed
+  for (const byte of hash) {
+    value = (value << 8) | byte;
+    bits += 8;
+    
+    while (bits >= 5) {
+      output += alphabet[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  
+  if (bits > 0) {
+    output += alphabet[(value << (5 - bits)) & 31];
+  }
+  
+  return output.slice(0, 20); // Take first 20 characters
 }
 
 export function contentSha256(content: string): string {

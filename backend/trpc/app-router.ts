@@ -8,6 +8,7 @@ import { reflectionTdsProcedure } from "./routes/reflection/tds/route";
 import { patchPlanProcedure } from "./routes/patch/plan/route";
 import { patchDiffProcedure } from "./routes/patch/diff/route";
 import { syncRunProcedure } from "./routes/sync/run/route";
+import { paulineTestProcedure, getPaulinePromptsProcedure } from "./routes/sync/pauline/route";
 import { loopHoldProcedure } from "./routes/loop/hold/route";
 import { loopRecheckProcedure } from "./routes/loop/recheck/route";
 import { integrityHashProcedure } from "./routes/integrity/hash/route";
@@ -34,6 +35,8 @@ export const appRouter = createTRPCRouter({
     }),
     sync: createTRPCRouter({
       run: syncRunProcedure,
+      pauline: paulineTestProcedure,
+      prompts: getPaulinePromptsProcedure,
     }),
     loop: createTRPCRouter({
       hold: loopHoldProcedure,

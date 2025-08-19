@@ -149,9 +149,12 @@ const SliderControl: React.FC<{
     const safeMin = typeof min === 'number' && isFinite(min) ? min : -1;
     const safeMax = typeof max === 'number' && isFinite(max) ? max : 1;
     
+    console.log('🎚️ Slider gesture:', { locationX: safeLocationX, percentage, min: safeMin, max: safeMax });
+    
     // Prevent division by zero
     const range = safeMax - safeMin;
     if (range === 0) {
+      console.warn('🎚️ Zero range detected, using min value');
       onValueChange(safeMin);
       return;
     }
@@ -161,18 +164,20 @@ const SliderControl: React.FC<{
     
     // Final validation and fallback
     let validValue: number;
-    if (isNaN(newValue) || !isFinite(newValue)) {
+    if (typeof newValue !== 'number' || isNaN(newValue) || !isFinite(newValue)) {
       validValue = (safeMin + safeMax) / 2; // Use midpoint as fallback
+      console.warn('🎚️ Invalid calculation, using midpoint:', validValue);
     } else {
-      validValue = Math.max(safeMin, Math.min(safeMax, Number(newValue.toFixed(1))));
+      validValue = Math.max(safeMin, Math.min(safeMax, Number(newValue.toFixed(2))));
     }
     
     // Double-check the final value before calling onChange
-    if (isNaN(validValue) || !isFinite(validValue)) {
-      console.warn('Invalid slider value detected, using fallback:', { newValue, validValue, min: safeMin, max: safeMax });
+    if (typeof validValue !== 'number' || isNaN(validValue) || !isFinite(validValue)) {
+      console.error('🎚️ Final validation failed, using safe fallback:', { newValue, validValue, min: safeMin, max: safeMax });
       validValue = safeMin;
     }
     
+    console.log('🎚️ Slider value change:', { from: value, to: validValue });
     onValueChange(validValue);
   };
 
@@ -500,7 +505,10 @@ export default function ParadoxScreen() {
                     label="Valence (Negative ↔ Positive)"
                     value={emotional.valence}
                     onValueChange={(value) => {
-                      const validValue = isNaN(value) || !isFinite(value) ? 0 : Math.max(-1, Math.min(1, Number(value.toFixed(2))));
+                      console.log('🎚️ Valence change requested:', value);
+                      const validValue = (typeof value === 'number' && isFinite(value)) ? 
+                        Math.max(-1, Math.min(1, Number(value.toFixed(2)))) : 0;
+                      console.log('🎚️ Valence validated:', validValue);
                       setEmotional(prev => ({ ...prev, valence: validValue }));
                     }}
                   />
@@ -509,7 +517,10 @@ export default function ParadoxScreen() {
                     label="Arousal (Calm ↔ Excited)"
                     value={emotional.arousal}
                     onValueChange={(value) => {
-                      const validValue = isNaN(value) || !isFinite(value) ? 0.5 : Math.max(0, Math.min(1, Number(value.toFixed(2))));
+                      console.log('🎚️ Arousal change requested:', value);
+                      const validValue = (typeof value === 'number' && isFinite(value)) ? 
+                        Math.max(0, Math.min(1, Number(value.toFixed(2)))) : 0.5;
+                      console.log('🎚️ Arousal validated:', validValue);
                       setEmotional(prev => ({ ...prev, arousal: validValue }));
                     }}
                     min={0}
@@ -520,7 +531,10 @@ export default function ParadoxScreen() {
                     label="Dominance (Passive ↔ Active)"
                     value={emotional.dominance}
                     onValueChange={(value) => {
-                      const validValue = isNaN(value) || !isFinite(value) ? 0.5 : Math.max(0, Math.min(1, Number(value.toFixed(2))));
+                      console.log('🎚️ Dominance change requested:', value);
+                      const validValue = (typeof value === 'number' && isFinite(value)) ? 
+                        Math.max(0, Math.min(1, Number(value.toFixed(2)))) : 0.5;
+                      console.log('🎚️ Dominance validated:', validValue);
                       setEmotional(prev => ({ ...prev, dominance: validValue }));
                     }}
                     min={0}
@@ -531,7 +545,10 @@ export default function ParadoxScreen() {
                     label="Entropy (Order ↔ Chaos)"
                     value={emotional.entropy}
                     onValueChange={(value) => {
-                      const validValue = isNaN(value) || !isFinite(value) ? 0.5 : Math.max(0, Math.min(1, Number(value.toFixed(2))));
+                      console.log('🎚️ Entropy change requested:', value);
+                      const validValue = (typeof value === 'number' && isFinite(value)) ? 
+                        Math.max(0, Math.min(1, Number(value.toFixed(2)))) : 0.5;
+                      console.log('🎚️ Entropy validated:', validValue);
                       setEmotional(prev => ({ ...prev, entropy: validValue }));
                     }}
                     min={0}

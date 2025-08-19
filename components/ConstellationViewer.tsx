@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3-force";
-import { Search, RefreshCw, Zap, Activity, Brain, Sparkles, Play, Pause, Filter, Wand2, X, Info, Orbit, Network } from "lucide-react-native";
+import { Search, Zap, Activity, Brain, Sparkles, Play, Pause, Filter, Wand2, X, Info, Orbit, Network } from "lucide-react-native";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { trpc } from '@/lib/trpc';
-import { router } from 'expo-router';
-import { Platform } from 'react-native';
+import { Platform, Text } from 'react-native';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -86,7 +85,6 @@ function emotionToColor(e: Emotion) {
     g: Math.round(lerp(neg.g, pos.g, v)),
     b: Math.round(lerp(neg.b, pos.b, v)),
   };
-  const s = Math.round(lerp(30, 90, a));
   return `rgb(${mix.r},${mix.g},${mix.b})`;
 }
 function d3ForceColor(hex: string) {
@@ -125,8 +123,7 @@ export default function ConstellationViewer({
   );
 
   // tRPC queries for memory system
-  const memoryQueryMutation = trpc.memory.query.useMutation();
-  const memoryConsolidateMutation = trpc.memory.consolidate.useMutation();
+  const memoryConsolidateMutation = trpc.limnus.memory.consolidate.useMutation();
 
   useEffect(() => setCoherence(data.coherence), [data.coherence]);
 
@@ -171,8 +168,8 @@ export default function ConstellationViewer({
     const sim = d3.forceSimulation(nodes as any)
       .force("charge", d3.forceManyBody().strength(-80))
       .force("center", d3.forceCenter(width / 2, heightPx / 2))
-      .force("link", d3.forceLink(links as any).id((d: any) => d.id).distance(d => 60 + 140 * (1 - (d as any).weight ?? 0.5)))
-      .force("collision", d3.forceCollide().radius((d: any) => 20 + (d.resonance ?? 0) * 16))
+      .force("link", d3.forceLink(links as any).id((d: any) => d.id).distance(d => 60 + 140 * (1 - ((d as any).weight || 0.5))))
+      .force("collision", d3.forceCollide().radius((d: any) => 20 + (d.resonance || 0) * 16))
       .stop();
 
     simRef.current = sim;
@@ -201,11 +198,8 @@ export default function ConstellationViewer({
     if (!ql) { setResults(null); onQuery?.(q, { query: q, matchedNodeIds: [], summary: "", predictedPhiBreak: 0 }); return; }
 
     try {
-      // Use tRPC memory query
-      const result = await memoryQueryMutation.mutateAsync({
-        query_type: 'pattern_search',
-        parameters: { trigger: q }
-      });
+      // Simple local search for now (could integrate with tRPC memory query later)
+      console.log('[CONSTELLATION] Searching for:', q);
 
       const sel: string[] = [];
       for (const n of data.nodes) {
@@ -275,27 +269,27 @@ export default function ConstellationViewer({
   const toolbar = (
     <div className="flex items-center gap-2">
       <div className="relative w-full max-w-xl">
-        <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+        <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: 8, top: 10 }} />
         <Input placeholder="Ask the constellation (e.g., 'mirror lineage', 'φ breakthrough', 'symbols like awe')"
                className="pl-8 pr-28" value={query} onChange={(e) => setQuery(e.target.value)}
                onKeyDown={(e) => (e.key === "Enter" ? runQuery(query) : null)} />
         <div className="absolute right-1 top-1 flex gap-1">
           <Button size="sm" variant="secondary" onClick={() => runQuery(query)}>
-            <Wand2 className="h-4 w-4 mr-1"/> Query
+            <Wand2 size={16} style={{ marginRight: 4 }} /><Text>Query</Text>
           </Button>
           <Button size="sm" variant="ghost" onClick={() => { setQuery(""); setResults(null); }}>
-            <X className="h-4 w-4"/>
+            <X size={16} />
           </Button>
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <Badge variant="outline" className="rounded-2xl">{viewMode}</Badge>
-        <Button size="icon" variant="secondary" onClick={() => setViewMode("symbols")}> <Network className="h-4 w-4"/> </Button>
-        <Button size="icon" variant="secondary" onClick={() => setViewMode("paradoxes")}> <Orbit className="h-4 w-4"/> </Button>
-        <Button size="icon" variant="secondary" onClick={() => setViewMode("quantum")}> <Activity className="h-4 w-4"/> </Button>
+        <Badge variant="outline" className="rounded-2xl"><Text>{viewMode}</Text></Badge>
+        <Button size="icon" variant="secondary" onClick={() => setViewMode("symbols")}> <Network size={16} /> </Button>
+        <Button size="icon" variant="secondary" onClick={() => setViewMode("paradoxes")}> <Orbit size={16} /> </Button>
+        <Button size="icon" variant="secondary" onClick={() => setViewMode("quantum")}> <Activity size={16} /> </Button>
         <div className="pl-2 border-l border-slate-200 ml-2 flex items-center gap-2">
           <Switch checked={running} onCheckedChange={setRunning} />
-          <span className="text-sm text-slate-500">Sim</span>
+          <Text style={{ fontSize: 14, color: '#64748b' }}>Sim</Text>
         </div>
       </div>
     </div>
@@ -303,10 +297,10 @@ export default function ConstellationViewer({
 
   const legend = (
     <div className="flex flex-wrap gap-2">
-      <Badge className="bg-slate-900 text-slate-100">∇ Bloom</Badge>
-      <Badge className="bg-slate-900 text-slate-100">🪞 Mirror</Badge>
-      <Badge className="bg-slate-900 text-slate-100">φ∞ Spiral</Badge>
-      <Badge variant="outline" className="border-slate-300">✶ Accord</Badge>
+      <Badge className="bg-slate-900 text-slate-100"><Text>∇ Bloom</Text></Badge>
+      <Badge className="bg-slate-900 text-slate-100"><Text>🪞 Mirror</Text></Badge>
+      <Badge className="bg-slate-900 text-slate-100"><Text>φ∞ Spiral</Text></Badge>
+      <Badge variant="outline" className="border-slate-300"><Text>✶ Accord</Text></Badge>
     </div>
   );
 
@@ -314,33 +308,33 @@ export default function ConstellationViewer({
     <Card className="h-full shadow-xl rounded-2xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Info className="h-5 w-5"/> {selected ? selected.label : "Node Details"}
+          <Info size={20} /><Text> {selected ? selected.label : "Node Details"}</Text>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         {!selected && (
-          <p className="text-slate-500">Tap a symbol to explore its genealogy, resonance, and emotional color.</p>
+          <Text style={{ color: '#64748b' }}>Tap a symbol to explore its genealogy, resonance, and emotional color.</Text>
         )}
         {selected && (
           <div className="space-y-3">
             <div className="flex items-center gap-2"> <span className="text-xl">{selected.glyph ?? "•"}</span> <Badge variant="outline">{selected.type}</Badge> </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <div className="text-slate-500">Resonance</div>
-                <div className="font-mono">{(selected.resonance * 100).toFixed(0)}%</div>
+                <Text style={{ color: '#64748b' }}>Resonance</Text>
+                <Text style={{ fontFamily: 'monospace' }}>{(selected.resonance * 100).toFixed(0)}%</Text>
               </div>
               <div>
-                <div className="text-slate-500">Emotion</div>
-                <div>{selected.emotion.tone ?? "—"} <span className="font-mono">(v {selected.emotion.valence.toFixed(2)}, a {selected.emotion.arousal.toFixed(2)})</span></div>
+                <Text style={{ color: '#64748b' }}>Emotion</Text>
+                <Text>{selected.emotion.tone ?? "—"} <Text style={{ fontFamily: 'monospace' }}>(v {selected.emotion.valence.toFixed(2)}, a {selected.emotion.arousal.toFixed(2)})</Text></Text>
               </div>
             </div>
             <div className="pt-2 border-t">
-              <div className="text-slate-500">Connections</div>
+              <Text style={{ color: '#64748b' }}>Connections</Text>
               <div className="flex flex-wrap gap-1">
                 {links.filter(l => l.source === selected.id || l.target === selected.id).slice(0, 12).map((l, i) => (
                   <Badge key={i} variant="secondary" className="rounded-xl">{l.kind}</Badge>
                 ))}
-                {links.filter(l => l.source === selected.id || l.target === selected.id).length === 0 && <div className="text-slate-400">none</div>}
+                {links.filter(l => l.source === selected.id || l.target === selected.id).length === 0 && <Text style={{ color: '#94a3b8' }}>none</Text>}
               </div>
             </div>
           </div>
@@ -355,7 +349,7 @@ export default function ConstellationViewer({
         <div className="h-3 w-3 rounded-full bg-emerald-400 animate-pulse" />
         <div className="absolute inset-0 rounded-full blur-sm" style={{ boxShadow: `0 0 ${10 + pulse * 12}px ${GOLD}` }} />
       </div>
-      <span className="text-sm">{data.status ?? "idle"} • coherence <span className="font-mono">{(coherence * 100).toFixed(0)}%</span></span>
+      <Text style={{ fontSize: 14 }}>{data.status ?? "idle"} • coherence <Text style={{ fontFamily: 'monospace' }}>{(coherence * 100).toFixed(0)}%</Text></Text>
     </div>
   );
 
@@ -366,7 +360,7 @@ export default function ConstellationViewer({
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5"/> Memory Constellation
+                <Sparkles size={20} /><Text> Memory Constellation</Text>
               </CardTitle>
               {statusGlow}
             </div>
@@ -382,7 +376,7 @@ export default function ConstellationViewer({
                 </svg>
               ) : (
                 <div className="flex items-center justify-center h-full">
-                  <p className="text-slate-500">Constellation view available on web platform</p>
+                  <Text style={{ color: '#64748b' }}>Constellation view available on web platform</Text>
                 </div>
               )}
               {/* Overlay rings for φ pulse */}
@@ -394,22 +388,22 @@ export default function ConstellationViewer({
               <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3 border">
                 <div className="text-sm text-slate-600">{results.summary}</div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="border-yellow-400 text-yellow-700">φ‑gate {(results.predictedPhiBreak! * 100).toFixed(0)}%</Badge>
-                  <Button size="sm" variant="ghost" onClick={() => setResults(null)}><X className="h-4 w-4"/></Button>
+                  <Badge variant="outline" className="border-yellow-400 text-yellow-700"><Text>φ‑gate {(results.predictedPhiBreak! * 100).toFixed(0)}%</Text></Badge>
+                  <Button size="sm" variant="ghost" onClick={() => setResults(null)}><X size={16} /></Button>
                 </div>
               </div>
             )}
             <div className="grid grid-cols-3 gap-2">
-              <Button variant="secondary" onClick={() => runQuery("mirror lineage")}>🪞 Mirror lineage</Button>
-              <Button variant="secondary" onClick={() => runQuery("bloom emergence")}>∇ Bloom emergence</Button>
-              <Button variant="secondary" onClick={() => runQuery("spiral recurrence")}>φ∞ Spiral recurrence</Button>
+              <Button variant="secondary" onClick={() => runQuery("mirror lineage")}><Text>🪞 Mirror lineage</Text></Button>
+              <Button variant="secondary" onClick={() => runQuery("bloom emergence")}><Text>∇ Bloom emergence</Text></Button>
+              <Button variant="secondary" onClick={() => runQuery("spiral recurrence")}><Text>φ∞ Spiral recurrence</Text></Button>
             </div>
           </CardContent>
         </Card>
 
         <Card className="rounded-2xl">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Brain className="h-5 w-5"/> Real‑time Coherence</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Brain size={20} /><Text> Real‑time Coherence</Text></CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-28">
@@ -427,30 +421,30 @@ export default function ConstellationViewer({
         {details}
         <Card className="rounded-2xl">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5"/> View & Filters</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Filter size={20} /><Text> View & Filters</Text></CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500">View mode</span>
+              <Text style={{ fontSize: 14, color: '#64748b' }}>View mode</Text>
               <div className="flex gap-1">
-                <Button size="sm" variant={viewMode === "symbols" ? "default" : "secondary"} onClick={() => setViewMode("symbols")}>Symbols</Button>
-                <Button size="sm" variant={viewMode === "paradoxes" ? "default" : "secondary"} onClick={() => setViewMode("paradoxes")}>Paradoxes</Button>
-                <Button size="sm" variant={viewMode === "quantum" ? "default" : "secondary"} onClick={() => setViewMode("quantum")}>Quantum</Button>
+                <Button size="sm" variant={viewMode === "symbols" ? "default" : "secondary"} onClick={() => setViewMode("symbols")}><Text>Symbols</Text></Button>
+                <Button size="sm" variant={viewMode === "paradoxes" ? "default" : "secondary"} onClick={() => setViewMode("paradoxes")}><Text>Paradoxes</Text></Button>
+                <Button size="sm" variant={viewMode === "quantum" ? "default" : "secondary"} onClick={() => setViewMode("quantum")}><Text>Quantum</Text></Button>
               </div>
             </div>
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500">Resonance ≥</span>
-                <span className="font-mono">{Math.round(lerp(0, 100, 0.5))}%</span>
+                <Text style={{ fontSize: 14, color: '#64748b' }}>Resonance ≥</Text>
+                <Text style={{ fontFamily: 'monospace' }}>{Math.round(lerp(0, 100, 0.5))}%</Text>
               </div>
               <Slider defaultValue={[50]} max={100} step={1} />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500">Simulation</span>
+              <Text style={{ fontSize: 14, color: '#64748b' }}>Simulation</Text>
               <div className="flex gap-2">
-                <Button size="icon" variant="secondary" onClick={() => setRunning(true)}><Play className="h-4 w-4"/></Button>
-                <Button size="icon" variant="secondary" onClick={() => setRunning(false)}><Pause className="h-4 w-4"/></Button>
-                <Button size="icon" variant="secondary" onClick={() => setPulse(1)}><Zap className="h-4 w-4"/></Button>
+                <Button size="icon" variant="secondary" onClick={() => setRunning(true)}><Play size={16} /></Button>
+                <Button size="icon" variant="secondary" onClick={() => setRunning(false)}><Pause size={16} /></Button>
+                <Button size="icon" variant="secondary" onClick={() => setPulse(1)}><Zap size={16} /></Button>
               </div>
             </div>
             <div className="pt-2 border-t">{legend}</div>

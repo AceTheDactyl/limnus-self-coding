@@ -21,6 +21,7 @@ function RootLayoutNav() {
     }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="session" options={{ headerShown: false }} />
+      <Stack.Screen name="paradox" options={{ headerShown: false }} />
       <Stack.Screen name="reflection" options={{ title: "Reflection Engine" }} />
       <Stack.Screen name="patch" options={{ title: "Patch Composer" }} />
       <Stack.Screen name="sync" options={{ title: "Interpersonal Sync" }} />

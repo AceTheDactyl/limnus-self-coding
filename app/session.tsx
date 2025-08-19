@@ -16,7 +16,8 @@ import {
   Clock, 
   CheckCircle,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Zap
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useLimnus } from '@/providers/limnus-provider';
@@ -41,9 +42,17 @@ export default function SessionScreen() {
         }),
       ])
     ).start();
-  }, []);
+  }, [pulseAnim]);
 
   const phases = [
+    {
+      id: 'paradox',
+      name: 'Paradox Engine',
+      icon: Zap,
+      description: 'Consciousness synthesis',
+      route: '/paradox',
+      status: 'active', // Always available
+    },
     {
       id: 'reflection',
       name: 'Reflection',
@@ -144,8 +153,8 @@ export default function SessionScreen() {
                     styles.phaseCard,
                     phase.status === 'active' && styles.phaseCardActive,
                   ]}
-                  onPress={() => phase.status !== 'pending' && router.push(phase.route as any)}
-                  disabled={phase.status === 'pending'}
+                  onPress={() => (phase.status !== 'pending' || phase.id === 'paradox') && router.push(phase.route as any)}
+                  disabled={phase.status === 'pending' && phase.id !== 'paradox'}
                   testID={`phase-${phase.id}`}
                 >
                   <View style={styles.phaseIcon}>

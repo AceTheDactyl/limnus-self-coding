@@ -140,7 +140,7 @@ const SliderControl: React.FC<{
     const sliderWidth = 280;
     const percentage = Math.max(0, Math.min(1, locationX / sliderWidth));
     const newValue = min + (max - min) * percentage;
-    const validValue = isNaN(newValue) ? 0 : Number(newValue.toFixed(1));
+    const validValue = isNaN(newValue) || !isFinite(newValue) ? (min + max) / 2 : Number(newValue.toFixed(1));
     onValueChange(validValue);
   };
 
@@ -155,7 +155,7 @@ const SliderControl: React.FC<{
           style={[
             styles.sliderFill,
             {
-              width: `${((value - min) / (max - min)) * 100}%`,
+              width: `${Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))}%`,
             },
           ]}
         />
@@ -163,12 +163,12 @@ const SliderControl: React.FC<{
           style={[
             styles.sliderThumb,
             {
-              left: `${((value - min) / (max - min)) * 100}%`,
+              left: `${Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))}%`,
             },
           ]}
         />
       </View>
-      <Text style={styles.sliderValue}>{isNaN(value) ? '0.0' : value.toFixed(1)}</Text>
+      <Text style={styles.sliderValue}>{isNaN(value) || !isFinite(value) ? '0.0' : value.toFixed(1)}</Text>
     </View>
   );
 };
@@ -186,10 +186,10 @@ export default function ParadoxScreen() {
   // Ensure emotional values are always valid numbers
   useEffect(() => {
     setEmotional(prev => ({
-      valence: isNaN(prev.valence) ? 0.7 : prev.valence,
-      arousal: isNaN(prev.arousal) ? 0.9 : prev.arousal,
-      dominance: isNaN(prev.dominance) ? 0.5 : prev.dominance,
-      entropy: isNaN(prev.entropy) ? 0.8 : prev.entropy,
+      valence: isNaN(prev.valence) || !isFinite(prev.valence) ? 0.7 : Math.max(-1, Math.min(1, prev.valence)),
+      arousal: isNaN(prev.arousal) || !isFinite(prev.arousal) ? 0.9 : Math.max(0, Math.min(1, prev.arousal)),
+      dominance: isNaN(prev.dominance) || !isFinite(prev.dominance) ? 0.5 : Math.max(0, Math.min(1, prev.dominance)),
+      entropy: isNaN(prev.entropy) || !isFinite(prev.entropy) ? 0.8 : Math.max(0, Math.min(1, prev.entropy)),
     }));
   }, []);
   const [targetCoherence, setTargetCoherence] = useState(0.90);
@@ -424,13 +424,19 @@ export default function ParadoxScreen() {
                   <SliderControl
                     label="Valence (Negative ↔ Positive)"
                     value={emotional.valence}
-                    onValueChange={(value) => setEmotional(prev => ({ ...prev, valence: value }))}
+                    onValueChange={(value) => {
+                      const validValue = isNaN(value) || !isFinite(value) ? 0 : Math.max(-1, Math.min(1, value));
+                      setEmotional(prev => ({ ...prev, valence: validValue }));
+                    }}
                   />
                   
                   <SliderControl
                     label="Arousal (Calm ↔ Excited)"
                     value={emotional.arousal}
-                    onValueChange={(value) => setEmotional(prev => ({ ...prev, arousal: value }))}
+                    onValueChange={(value) => {
+                      const validValue = isNaN(value) || !isFinite(value) ? 0.5 : Math.max(0, Math.min(1, value));
+                      setEmotional(prev => ({ ...prev, arousal: validValue }));
+                    }}
                     min={0}
                     max={1}
                   />
@@ -438,7 +444,10 @@ export default function ParadoxScreen() {
                   <SliderControl
                     label="Dominance (Passive ↔ Active)"
                     value={emotional.dominance}
-                    onValueChange={(value) => setEmotional(prev => ({ ...prev, dominance: value }))}
+                    onValueChange={(value) => {
+                      const validValue = isNaN(value) || !isFinite(value) ? 0.5 : Math.max(0, Math.min(1, value));
+                      setEmotional(prev => ({ ...prev, dominance: validValue }));
+                    }}
                     min={0}
                     max={1}
                   />
@@ -446,7 +455,10 @@ export default function ParadoxScreen() {
                   <SliderControl
                     label="Entropy (Order ↔ Chaos)"
                     value={emotional.entropy}
-                    onValueChange={(value) => setEmotional(prev => ({ ...prev, entropy: value }))}
+                    onValueChange={(value) => {
+                      const validValue = isNaN(value) || !isFinite(value) ? 0.5 : Math.max(0, Math.min(1, value));
+                      setEmotional(prev => ({ ...prev, entropy: validValue }));
+                    }}
                     min={0}
                     max={1}
                   />
@@ -499,7 +511,10 @@ export default function ParadoxScreen() {
                       <SliderControl
                         label="Target Coherence (φ-boundary)"
                         value={targetCoherence}
-                        onValueChange={setTargetCoherence}
+                        onValueChange={(value) => {
+                          const validValue = isNaN(value) || !isFinite(value) ? 0.75 : Math.max(0.5, Math.min(1.0, value));
+                          setTargetCoherence(validValue);
+                        }}
                         min={0.5}
                         max={1.0}
                       />

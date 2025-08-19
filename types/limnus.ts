@@ -110,6 +110,8 @@ export interface ParadoxMetrics {
   phiGate: number;          // φ-gate score (now includes TSVF)
   emotionalDelta: number;   // emotional state change magnitude
   twoStateSupport?: number; // TSVF weak-value support
+  memory_baseline?: number; // starting coherence from memory
+  memory_boost?: number;    // how much memory enhanced the resolution
 }
 
 export interface ParadoxSynthesis {
@@ -134,6 +136,11 @@ export interface ParadoxResolution {
   current_state: 'unresolved' | 'resolving' | 'synthesized' | 'transcended';
   created_at: string;
   last_modified: string;
+  memory_context?: {
+    similar_count: number;
+    avg_baseline: number;
+    learned_patterns: string;
+  };
 }
 
 export interface ResolutionAttempt {

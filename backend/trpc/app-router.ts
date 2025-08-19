@@ -17,7 +17,8 @@ import {
   paradoxRunProcedure, 
   getParadoxEngineProcedure, 
   resolveParadoxBatchProcedure, 
-  clearResolvedParadoxesProcedure 
+  clearResolvedParadoxesProcedure,
+  queryParadoxMemoryProcedure
 } from "./routes/paradox/engine/route";
 import { memoryConsolidateProcedure } from "./routes/memory/consolidate/route";
 import { memoryQueryProcedure } from "./routes/memory/query/route";
@@ -61,6 +62,7 @@ export const appRouter = createTRPCRouter({
       engine: getParadoxEngineProcedure,
       batch: resolveParadoxBatchProcedure,
       clear: clearResolvedParadoxesProcedure,
+      memory: queryParadoxMemoryProcedure,
     }),
     memory: createTRPCRouter({
       consolidate: memoryConsolidateProcedure,

@@ -19,6 +19,20 @@ let paradoxEngine: ParadoxEngine = {
   quantum_coherence: 0.618 // Start with φ-1
 };
 
+// Paradox Memory System - remembers transcendence patterns
+interface ParadoxMemory {
+  paradox_hash: string;
+  resolution_path: 'collapse' | 'transcend' | 'sustain';
+  coherence_delta: number;
+  timestamp: number;
+  context_embeddings: number[]; // simplified vector representation
+  child_paradoxes: string[];
+  synthesis_symbol: string;
+  baseline_coherence: number; // starting coherence for similar paradoxes
+}
+
+let paradoxMemoryBank: ParadoxMemory[] = [];
+
 // TSVF Constants
 const PHI = 1.618033988749895;
 const EPS = 1e-6;
@@ -68,6 +82,120 @@ function hybridSimilarity(text1: string, text2: string): number {
   return 0.6 * (1 - semanticDist) + 0.4 * wordOverlap;
 }
 
+// Memory Functions
+function createParadoxHash(thesis: string, antithesis: string): string {
+  const combined = `${thesis.toLowerCase().trim()}|${antithesis.toLowerCase().trim()}`;
+  return crypto.createHash('sha256').update(combined).digest('hex').substring(0, 16);
+}
+
+function createContextEmbedding(thesis: string, antithesis: string): number[] {
+  // Simplified embedding: word frequency + semantic markers
+  const text = `${thesis} ${antithesis}`.toLowerCase();
+  const words = text.split(/\s+/);
+  
+  // Key concept dimensions (simplified vector space)
+  const dimensions = {
+    'self': ['self', 'i', 'me', 'identity', 'being'],
+    'other': ['other', 'they', 'external', 'world', 'outside'],
+    'time': ['time', 'past', 'future', 'now', 'moment', 'eternal'],
+    'change': ['change', 'transform', 'become', 'evolve', 'shift'],
+    'unity': ['one', 'unity', 'whole', 'complete', 'together'],
+    'duality': ['two', 'dual', 'opposite', 'contrast', 'between'],
+    'creation': ['create', 'build', 'make', 'generate', 'birth'],
+    'destruction': ['destroy', 'end', 'death', 'dissolve', 'break']
+  };
+  
+  const embedding: number[] = [];
+  for (const [, keywords] of Object.entries(dimensions)) {
+    const score = keywords.reduce((sum, keyword) => {
+      return sum + words.filter(word => word.includes(keyword)).length;
+    }, 0) / words.length;
+    embedding.push(Math.min(1, score * 5)); // normalize to [0,1]
+  }
+  
+  return embedding;
+}
+
+function calculateEmbeddingDistance(emb1: number[], emb2: number[]): number {
+  if (emb1.length !== emb2.length) return 1;
+  
+  const sumSquares = emb1.reduce((sum, val, i) => {
+    return sum + Math.pow(val - emb2[i], 2);
+  }, 0);
+  
+  return Math.sqrt(sumSquares / emb1.length);
+}
+
+function findSimilarParadoxMemories(thesis: string, antithesis: string, threshold: number = 0.3): ParadoxMemory[] {
+  const queryEmbedding = createContextEmbedding(thesis, antithesis);
+  
+  return paradoxMemoryBank
+    .map(memory => ({
+      memory,
+      distance: calculateEmbeddingDistance(queryEmbedding, memory.context_embeddings)
+    }))
+    .filter(({ distance }) => distance <= threshold)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 5)
+    .map(({ memory }) => memory);
+}
+
+function getBaselineCoherence(thesis: string, antithesis: string): number {
+  const similarMemories = findSimilarParadoxMemories(thesis, antithesis);
+  
+  if (similarMemories.length === 0) {
+    return 0.618; // φ-1 baseline
+  }
+  
+  // Start from the highest achieved coherence of similar paradoxes
+  const maxBaseline = Math.max(...similarMemories.map(m => m.baseline_coherence));
+  const avgDelta = similarMemories.reduce((sum, m) => sum + m.coherence_delta, 0) / similarMemories.length;
+  
+  // Progressive learning: each similar resolution raises the baseline
+  const progressiveBonus = Math.min(0.2, similarMemories.length * 0.05);
+  
+  return Math.min(PHI, maxBaseline + avgDelta * 0.3 + progressiveBonus);
+}
+
+function storeParadoxMemory(paradox: ParadoxResolution, synthesis: ParadoxSynthesis): void {
+  const paradoxHash = createParadoxHash(paradox.thesis, paradox.antithesis);
+  
+  // Check if we already have this exact paradox
+  const existingMemory = paradoxMemoryBank.find(m => m.paradox_hash === paradoxHash);
+  
+  if (existingMemory) {
+    // Update existing memory with new resolution data
+    existingMemory.coherence_delta = Math.max(existingMemory.coherence_delta, synthesis.metrics.phiGate - 0.618);
+    existingMemory.baseline_coherence = Math.max(existingMemory.baseline_coherence, synthesis.metrics.phiGate);
+    existingMemory.timestamp = Date.now();
+    
+    console.log(`🧠 Updated paradox memory: ${paradoxHash.substring(0, 8)} - new baseline: ${existingMemory.baseline_coherence.toFixed(3)}`);
+    return;
+  }
+  
+  // Create new memory
+  const newMemory: ParadoxMemory = {
+    paradox_hash: paradoxHash,
+    resolution_path: synthesis.resolution_path,
+    coherence_delta: synthesis.metrics.phiGate - 0.618,
+    timestamp: Date.now(),
+    context_embeddings: createContextEmbedding(paradox.thesis, paradox.antithesis),
+    child_paradoxes: [],
+    synthesis_symbol: synthesis.overlay.join(''),
+    baseline_coherence: synthesis.metrics.phiGate
+  };
+  
+  paradoxMemoryBank.push(newMemory);
+  
+  // Limit memory bank size (keep most recent 100 memories)
+  if (paradoxMemoryBank.length > 100) {
+    paradoxMemoryBank.sort((a, b) => b.timestamp - a.timestamp);
+    paradoxMemoryBank = paradoxMemoryBank.slice(0, 100);
+  }
+  
+  console.log(`🧠 Stored new paradox memory: ${paradoxHash.substring(0, 8)} - coherence delta: ${newMemory.coherence_delta.toFixed(3)}`);
+}
+
 function antonymOpposition(text1: string, text2: string): number {
   const oppositionWords = [
     ['not', 'is'], ['cannot', 'can'], ['never', 'always'], 
@@ -99,12 +227,16 @@ function emotionalDelta(emotion?: EmotionalVector): number {
   return Math.min(1, (intensity / 3 + instability) / 2);
 }
 
-// TSVF Two-State Gate
-function twoStateGate(candidate: string, T1: string, T2: string): number {
+// TSVF Two-State Gate with Memory Enhancement
+function twoStateGate(candidate: string, T1: string, T2: string, memoryBoost: number = 0): number {
   const O = Math.max(EPS, hybridSimilarity(T1, T2)); // overlap of boundaries
   const S2 = hybridSimilarity(candidate, T1) * hybridSimilarity(candidate, T2); // two-state support
   const W = S2 / O; // weak-style gain
-  return sigmoid(TSVF_K * (W - 1/PHI)); // G₂ in [0,1]
+  
+  // Memory enhancement: learned patterns boost the gate
+  const enhancedW = W + memoryBoost * 0.2;
+  
+  return sigmoid(TSVF_K * (enhancedW - 1/PHI)); // G₂ in [0,1]
 }
 
 function phiGate(similarity: number, opposition: number): number {
@@ -140,11 +272,15 @@ function craftStatement(type: string, T1: string, T2: string): string {
   }
 }
 
-// Main Paradox Engine
+// Main Paradox Engine with Memory Integration
 export function runParadox(input: ParadoxInput): ParadoxSynthesis {
   const T1 = input.thesis;
   // If user provides explicit T2 goal, prefer it; else fall back to antithesis
   const T2 = input.post?.descriptor?.trim()?.length ? input.post.descriptor : input.antithesis;
+  
+  // Memory-enhanced baseline coherence
+  const baselineCoherence = getBaselineCoherence(T1, input.antithesis);
+  const memoryBoost = baselineCoherence - 0.618; // how much memory helps
   
   // Calculate base metrics
   const sim = hybridSimilarity(T1, input.antithesis);
@@ -157,29 +293,35 @@ export function runParadox(input: ParadoxInput): ParadoxSynthesis {
   const { type, overlay } = chooseType(sim, antOpp, eDelta);
   const candidate = craftStatement(type, T1, input.antithesis || T2);
   
-  // TSVF two-state contribution
-  const G2 = T2 ? twoStateGate(candidate, T1, T2) : 0.5;
+  // TSVF two-state contribution with memory enhancement
+  const G2 = T2 ? twoStateGate(candidate, T1, T2, memoryBoost) : 0.5;
   const twoStateSupport = T2 ? hybridSimilarity(candidate, T1) * hybridSimilarity(candidate, T2) : undefined;
   
-  // Final composite gate (retrocausal blend)
-  const retroGate = Math.min(1, 0.5 * gate + 0.5 * G2);
+  // Final composite gate (retrocausal blend) starting from learned baseline
+  const rawGate = Math.min(1, 0.5 * gate + 0.5 * G2);
+  const retroGate = Math.min(PHI, baselineCoherence + (rawGate - 0.618) * 0.7);
   
   const metrics: ParadoxMetrics = {
     similarity: sim,
     tension: 1 - sim,
     complexity,
-    phiGate: retroGate, // now includes TSVF contribution
+    phiGate: retroGate, // now includes memory baseline + TSVF contribution
     emotionalDelta: Math.min(1, eDelta * 2),
-    twoStateSupport
+    twoStateSupport,
+    memory_baseline: baselineCoherence,
+    memory_boost: memoryBoost
   };
   
-  // Re-evaluate type if retroGate is very high (TSVF boost)
+  // Re-evaluate type if retroGate is very high (memory + TSVF boost)
   const boostedType = retroGate > 0.68 ? 'transcendent' : type;
   const finalStatement = boostedType === type ? candidate : 
     craftStatement('transcendent', T1, input.antithesis || T2);
   
-  // Mark accord when two-state logic is used
-  const finalOverlay = T2 && !overlay.includes('✶') ? [...overlay, '✶'] : overlay;
+  // Mark accord when two-state logic is used, add memory symbol if significant boost
+  let finalOverlay = T2 && !overlay.includes('✶') ? [...overlay, '✶'] : overlay;
+  if (memoryBoost > 0.1 && !finalOverlay.includes('🧠')) {
+    finalOverlay = [...finalOverlay, '🧠'];
+  }
   
   // Generate integrity hash
   const payload = JSON.stringify({
@@ -190,6 +332,8 @@ export function runParadox(input: ParadoxInput): ParadoxSynthesis {
     overlay: finalOverlay
   });
   const contentHash = crypto.createHash('sha256').update(payload).digest('hex');
+  
+  console.log(`🧠 Memory-enhanced paradox: baseline ${baselineCoherence.toFixed(3)} → final ${retroGate.toFixed(3)} (boost: ${memoryBoost.toFixed(3)})`);
   
   return {
     type: boostedType,
@@ -203,7 +347,7 @@ export function runParadox(input: ParadoxInput): ParadoxSynthesis {
   };
 }
 
-// Enhanced Paradox Resolution Engine
+// Enhanced Paradox Resolution Engine with Memory Integration
 function createParadoxResolution(
   thesis: string, 
   antithesis: string, 
@@ -211,6 +355,18 @@ function createParadoxResolution(
 ): ParadoxResolution {
   const paradox_id = `paradox_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const tension_score = Math.min(100, (1 - hybridSimilarity(thesis, antithesis)) * 100 + antonymOpposition(thesis, antithesis) * 50);
+  
+  // Check memory for similar paradoxes
+  const similarMemories = findSimilarParadoxMemories(thesis, antithesis);
+  const memoryContext = similarMemories.length > 0 ? {
+    similar_count: similarMemories.length,
+    avg_baseline: similarMemories.reduce((sum, m) => sum + m.baseline_coherence, 0) / similarMemories.length,
+    learned_patterns: similarMemories.map(m => m.synthesis_symbol).join('')
+  } : undefined;
+  
+  if (memoryContext) {
+    console.log(`🧠 Found ${memoryContext.similar_count} similar paradox memories - avg baseline: ${memoryContext.avg_baseline.toFixed(3)}`);
+  }
   
   return {
     paradox_id,
@@ -220,7 +376,8 @@ function createParadoxResolution(
     resolution_attempts: [],
     current_state: 'unresolved',
     created_at: new Date().toISOString(),
-    last_modified: new Date().toISOString()
+    last_modified: new Date().toISOString(),
+    memory_context: memoryContext
   };
 }
 
@@ -249,7 +406,12 @@ function createResolutionAttempt(
 
 function updateQuantumCoherence(): void {
   if (paradoxEngine.active_paradoxes.length === 0) {
-    paradoxEngine.quantum_coherence = 0.618;
+    // Base coherence influenced by memory bank wisdom
+    const memoryWisdom = paradoxMemoryBank.length > 0 ?
+      paradoxMemoryBank.reduce((sum, m) => sum + m.baseline_coherence, 0) / paradoxMemoryBank.length :
+      0.618;
+    
+    paradoxEngine.quantum_coherence = Math.min(PHI, memoryWisdom * 0.3 + 0.618 * 0.7);
     return;
   }
   
@@ -261,7 +423,15 @@ function updateQuantumCoherence(): void {
     return sum + (latestAttempt ? latestAttempt.coherence_score / 100 : 0);
   }, 0);
   
-  paradoxEngine.quantum_coherence = totalCoherence / paradoxEngine.active_paradoxes.length;
+  const activeCoherence = totalCoherence / paradoxEngine.active_paradoxes.length;
+  
+  // Blend active coherence with accumulated memory wisdom
+  const memoryInfluence = Math.min(0.4, paradoxMemoryBank.length * 0.02);
+  const memoryWisdom = paradoxMemoryBank.length > 0 ?
+    paradoxMemoryBank.reduce((sum, m) => sum + m.baseline_coherence, 0) / paradoxMemoryBank.length :
+    0.618;
+  
+  paradoxEngine.quantum_coherence = activeCoherence * (1 - memoryInfluence) + memoryWisdom * memoryInfluence;
 }
 
 function determineResolutionPath(synthesis: ParadoxSynthesis): 'collapse' | 'transcend' | 'sustain' {
@@ -337,6 +507,9 @@ export const paradoxRunProcedure = publicProcedure
       if (attempt.success) {
         paradox.synthesis = enhancedSynthesis;
         paradox.current_state = enhancedSynthesis.resolution_path === 'transcend' ? 'transcended' : 'synthesized';
+        
+        // Store in memory bank for future learning
+        storeParadoxMemory(paradox, enhancedSynthesis);
         
         // Track synthesis genealogy
         const genealogyEntry = {
@@ -515,4 +688,130 @@ export const clearResolvedParadoxesProcedure = publicProcedure
       new_quantum_coherence: paradoxEngine.quantum_coherence,
       genealogy_depth: paradoxEngine.synthesis_genealogy.length
     };
+  });
+
+// Query Paradox Memory Bank
+export const queryParadoxMemoryProcedure = publicProcedure
+  .input(z.object({
+    query_type: z.enum(['similar_paradoxes', 'memory_stats', 'baseline_prediction', 'memory_evolution']),
+    thesis: z.string().optional(),
+    antithesis: z.string().optional(),
+    limit: z.number().min(1).max(50).optional().default(10)
+  }))
+  .query(async ({ input }) => {
+    console.log(`🧠 Querying paradox memory: ${input.query_type}`);
+    
+    try {
+      switch (input.query_type) {
+        case 'similar_paradoxes': {
+          if (!input.thesis || !input.antithesis) {
+            throw new Error('thesis and antithesis required for similar_paradoxes query');
+          }
+          
+          const similarMemories = findSimilarParadoxMemories(input.thesis, input.antithesis, 0.5);
+          const baselineCoherence = getBaselineCoherence(input.thesis, input.antithesis);
+          
+          return {
+            success: true,
+            data: {
+              similar_memories: similarMemories.slice(0, input.limit),
+              predicted_baseline: baselineCoherence,
+              memory_boost: baselineCoherence - 0.618,
+              total_similar: similarMemories.length
+            }
+          };
+        }
+        
+        case 'memory_stats': {
+          const totalMemories = paradoxMemoryBank.length;
+          const avgBaseline = totalMemories > 0 ?
+            paradoxMemoryBank.reduce((sum, m) => sum + m.baseline_coherence, 0) / totalMemories : 0.618;
+          const avgDelta = totalMemories > 0 ?
+            paradoxMemoryBank.reduce((sum, m) => sum + m.coherence_delta, 0) / totalMemories : 0;
+          
+          const resolutionPaths = paradoxMemoryBank.reduce((acc, m) => {
+            acc[m.resolution_path] = (acc[m.resolution_path] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+          
+          return {
+            success: true,
+            data: {
+              total_memories: totalMemories,
+              average_baseline: avgBaseline,
+              average_delta: avgDelta,
+              resolution_paths: resolutionPaths,
+              memory_bank_wisdom: avgBaseline,
+              oldest_memory: totalMemories > 0 ? 
+                Math.min(...paradoxMemoryBank.map(m => m.timestamp)) : null,
+              newest_memory: totalMemories > 0 ?
+                Math.max(...paradoxMemoryBank.map(m => m.timestamp)) : null
+            }
+          };
+        }
+        
+        case 'baseline_prediction': {
+          if (!input.thesis || !input.antithesis) {
+            throw new Error('thesis and antithesis required for baseline_prediction query');
+          }
+          
+          const baselineCoherence = getBaselineCoherence(input.thesis, input.antithesis);
+          const similarMemories = findSimilarParadoxMemories(input.thesis, input.antithesis);
+          
+          return {
+            success: true,
+            data: {
+              predicted_baseline: baselineCoherence,
+              default_baseline: 0.618,
+              memory_enhancement: baselineCoherence - 0.618,
+              confidence: Math.min(1, similarMemories.length * 0.2),
+              contributing_memories: similarMemories.length,
+              learned_patterns: similarMemories.map(m => m.synthesis_symbol).join('')
+            }
+          };
+        }
+        
+        case 'memory_evolution': {
+          const sortedMemories = [...paradoxMemoryBank]
+            .sort((a, b) => a.timestamp - b.timestamp)
+            .slice(-input.limit);
+          
+          const evolutionTrend = sortedMemories.map((memory, index) => ({
+            timestamp: memory.timestamp,
+            baseline_coherence: memory.baseline_coherence,
+            coherence_delta: memory.coherence_delta,
+            resolution_path: memory.resolution_path,
+            synthesis_symbol: memory.synthesis_symbol,
+            sequence_number: index + 1
+          }));
+          
+          return {
+            success: true,
+            data: {
+              evolution_timeline: evolutionTrend,
+              coherence_trend: evolutionTrend.map(e => e.baseline_coherence),
+              resolution_evolution: evolutionTrend.map(e => e.resolution_path),
+              symbol_evolution: evolutionTrend.map(e => e.synthesis_symbol),
+              learning_velocity: evolutionTrend.length > 1 ?
+                (evolutionTrend[evolutionTrend.length - 1].baseline_coherence - evolutionTrend[0].baseline_coherence) / evolutionTrend.length
+                : 0
+            }
+          };
+        }
+        
+        default:
+          return {
+            success: false,
+            error: `Unknown query type: ${input.query_type}`,
+            data: null
+          };
+      }
+    } catch (error) {
+      console.error('🧠 Memory query failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown memory query error',
+        data: null
+      };
+    }
   });

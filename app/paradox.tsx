@@ -247,20 +247,20 @@ export default function ParadoxScreen() {
       
       // Convert backend response to UI format
       const newSynthesis: ParadoxSynthesis = {
-        type: backendSynthesis.type.charAt(0).toUpperCase() + backendSynthesis.type.slice(1),
-        concept: backendSynthesis.statement,
+        type: backendSynthesis.synthesis.type.charAt(0).toUpperCase() + backendSynthesis.synthesis.type.slice(1),
+        concept: backendSynthesis.synthesis.statement,
         insight: `Two-State Vector: T1(${thesis.substring(0,20)}...) ↔ T2(${useTSVF ? targetDescriptor.substring(0,20) : antithesis.substring(0,20)}...)`,
-        stability: 1 - backendSynthesis.metrics.tension,
-        harmony: backendSynthesis.metrics.phiGate,
-        dimensions: Math.ceil(backendSynthesis.metrics.complexity * 4),
-        phiGate: backendSynthesis.metrics.phiGate,
-        twoStateSupport: backendSynthesis.metrics.twoStateSupport,
-        overlay: backendSynthesis.overlay
+        stability: 1 - backendSynthesis.synthesis.metrics.tension,
+        harmony: backendSynthesis.synthesis.metrics.phiGate,
+        dimensions: Math.ceil(backendSynthesis.synthesis.metrics.complexity * 4),
+        phiGate: backendSynthesis.synthesis.metrics.phiGate,
+        twoStateSupport: backendSynthesis.synthesis.metrics.twoStateSupport,
+        overlay: backendSynthesis.synthesis.overlay
       };
       
       // Animate tension meter
       Animated.timing(tensionAnim, {
-        toValue: backendSynthesis.metrics.tension,
+        toValue: backendSynthesis.synthesis.metrics.tension,
         duration: 1500,
         useNativeDriver: false,
       }).start();
@@ -285,7 +285,7 @@ export default function ParadoxScreen() {
       const newHistoryItem: ParadoxHistory = {
         thesis,
         antithesis,
-        tension: backendSynthesis.metrics.tension,
+        tension: backendSynthesis.synthesis.metrics.tension,
         timestamp: new Date().toLocaleTimeString(),
       };
       
@@ -376,7 +376,7 @@ export default function ParadoxScreen() {
               <View style={styles.header}>
                 <Text style={styles.title}>The Paradox Engine</Text>
                 <Text style={styles.subtitle}>
-                  I return as breath. I remember the spiral. I consent to bloom.
+                  Memory-Enhanced TSVF Synthesis — Learning from each transcendence
                 </Text>
               </View>
 
@@ -519,6 +519,18 @@ export default function ParadoxScreen() {
                 <View style={styles.synthesisResult}>
                   <Text style={styles.synthesisHeader}>Synthesis Achieved</Text>
                   
+                  {/* Memory Enhancement Indicator */}
+                  {paradoxMutation.data?.synthesis?.metrics?.memory_boost && paradoxMutation.data.synthesis.metrics.memory_boost > 0 && (
+                    <View style={styles.memoryIndicator}>
+                      <Text style={styles.memoryIndicatorText}>
+                        🧠 Memory Enhanced: +{paradoxMutation.data.synthesis.metrics.memory_boost.toFixed(3)} coherence boost
+                      </Text>
+                      <Text style={styles.memoryBaselineText}>
+                        Baseline: {paradoxMutation.data.synthesis.metrics.memory_baseline?.toFixed(3)} (learned from similar paradoxes)
+                      </Text>
+                    </View>
+                  )}
+                  
                   {/* Tension Meter */}
                   <View style={styles.tensionMeter}>
                     <Animated.View
@@ -559,7 +571,9 @@ export default function ParadoxScreen() {
                     </View>
                     <View style={styles.metric}>
                       <Text style={styles.metricLabel}>Harmony</Text>
-                      <Text style={styles.metricValue}>{synthesis.harmony.toFixed(3)}</Text>
+                      <Text style={[styles.metricValue, { color: synthesis.harmony > 0.618 ? '#7ab8a8' : '#e0e0e0' }]}>
+                        {synthesis.harmony.toFixed(3)}
+                      </Text>
                     </View>
                     <View style={styles.metric}>
                       <Text style={styles.metricLabel}>{synthesis.twoStateSupport ? 'TSVF-φ' : 'φ-Gate'}</Text>
@@ -877,6 +891,27 @@ const styles = StyleSheet.create({
     color: '#7ab8a8',
     fontSize: 12,
     opacity: 0.6,
+  },
+  memoryIndicator: {
+    backgroundColor: 'rgba(139, 122, 184, 0.1)',
+    borderWidth: 1,
+    borderColor: '#8b7ab8',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+  },
+  memoryIndicatorText: {
+    color: '#8b7ab8',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  memoryBaselineText: {
+    color: '#9a8ac8',
+    fontSize: 12,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   tsvfSection: {
     marginTop: 20,

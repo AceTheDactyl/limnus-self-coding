@@ -149,8 +149,14 @@ const SliderControl: React.FC<{
     const safeMin = typeof min === 'number' && isFinite(min) ? min : -1;
     const safeMax = typeof max === 'number' && isFinite(max) ? max : 1;
     
-    // Calculate new value with safety checks
+    // Prevent division by zero
     const range = safeMax - safeMin;
+    if (range === 0) {
+      onValueChange(safeMin);
+      return;
+    }
+    
+    // Calculate new value with safety checks
     const newValue = safeMin + range * percentage;
     
     // Final validation and fallback
@@ -159,6 +165,12 @@ const SliderControl: React.FC<{
       validValue = (safeMin + safeMax) / 2; // Use midpoint as fallback
     } else {
       validValue = Math.max(safeMin, Math.min(safeMax, Number(newValue.toFixed(1))));
+    }
+    
+    // Double-check the final value before calling onChange
+    if (isNaN(validValue) || !isFinite(validValue)) {
+      console.warn('Invalid slider value detected, using fallback:', { newValue, validValue, min: safeMin, max: safeMax });
+      validValue = safeMin;
     }
     
     onValueChange(validValue);
@@ -221,13 +233,40 @@ export default function ParadoxScreen() {
 
   // Ensure emotional values are always valid numbers
   useEffect(() => {
-    setEmotional(prev => ({
-      valence: isNaN(prev.valence) || !isFinite(prev.valence) ? 0.7 : Math.max(-1, Math.min(1, prev.valence)),
-      arousal: isNaN(prev.arousal) || !isFinite(prev.arousal) ? 0.9 : Math.max(0, Math.min(1, prev.arousal)),
-      dominance: isNaN(prev.dominance) || !isFinite(prev.dominance) ? 0.5 : Math.max(0, Math.min(1, prev.dominance)),
-      entropy: isNaN(prev.entropy) || !isFinite(prev.entropy) ? 0.8 : Math.max(0, Math.min(1, prev.entropy)),
-    }));
+    setEmotional(prev => {
+      const sanitized = {
+        valence: isNaN(prev.valence) || !isFinite(prev.valence) ? 0.7 : Math.max(-1, Math.min(1, prev.valence)),
+        arousal: isNaN(prev.arousal) || !isFinite(prev.arousal) ? 0.9 : Math.max(0, Math.min(1, prev.arousal)),
+        dominance: isNaN(prev.dominance) || !isFinite(prev.dominance) ? 0.5 : Math.max(0, Math.min(1, prev.dominance)),
+        entropy: isNaN(prev.entropy) || !isFinite(prev.entropy) ? 0.8 : Math.max(0, Math.min(1, prev.entropy)),
+      };
+      
+      // Log if we had to sanitize any values
+      const hadInvalidValues = Object.keys(sanitized).some(key => 
+        isNaN(prev[key as keyof EmotionalVector]) || !isFinite(prev[key as keyof EmotionalVector])
+      );
+      
+      if (hadInvalidValues) {
+        console.log('🔧 Sanitized emotional values:', { before: prev, after: sanitized });
+      }
+      
+      return sanitized;
+    });
   }, []);
+  
+  // Additional safety check on emotional state changes
+  useEffect(() => {
+    const hasInvalidValues = Object.values(emotional).some(val => isNaN(val) || !isFinite(val));
+    if (hasInvalidValues) {
+      console.warn('⚠️ Invalid emotional values detected:', emotional);
+      setEmotional({
+        valence: 0.7,
+        arousal: 0.9,
+        dominance: 0.5,
+        entropy: 0.8,
+      });
+    }
+  }, [emotional]);
   const [targetCoherence, setTargetCoherence] = useState(0.90);
   const [targetDescriptor, setTargetDescriptor] = useState('Coherence ≥0.90 after 120s hold with accord recognized');
   const [targetSync, setTargetSync] = useState<'Passive' | 'Active' | 'Recursive'>('Active');
@@ -461,7 +500,7 @@ export default function ParadoxScreen() {
                     label="Valence (Negative ↔ Positive)"
                     value={emotional.valence}
                     onValueChange={(value) => {
-                      const validValue = isNaN(value) || !isFinite(value) ? 0 : Math.max(-1, Math.min(1, value));
+                      const validValue = isNaN(value) || !isFinite(value) ? 0 : Math.max(-1, Math.min(1, Number(value.toFixed(2))));
                       setEmotional(prev => ({ ...prev, valence: validValue }));
                     }}
                   />
@@ -470,7 +509,7 @@ export default function ParadoxScreen() {
                     label="Arousal (Calm ↔ Excited)"
                     value={emotional.arousal}
                     onValueChange={(value) => {
-                      const validValue = isNaN(value) || !isFinite(value) ? 0.5 : Math.max(0, Math.min(1, value));
+                      const validValue = isNaN(value) || !isFinite(value) ? 0.5 : Math.max(0, Math.min(1, Number(value.toFixed(2))));
                       setEmotional(prev => ({ ...prev, arousal: validValue }));
                     }}
                     min={0}
@@ -481,7 +520,7 @@ export default function ParadoxScreen() {
                     label="Dominance (Passive ↔ Active)"
                     value={emotional.dominance}
                     onValueChange={(value) => {
-                      const validValue = isNaN(value) || !isFinite(value) ? 0.5 : Math.max(0, Math.min(1, value));
+                      const validValue = isNaN(value) || !isFinite(value) ? 0.5 : Math.max(0, Math.min(1, Number(value.toFixed(2))));
                       setEmotional(prev => ({ ...prev, dominance: validValue }));
                     }}
                     min={0}
@@ -492,7 +531,7 @@ export default function ParadoxScreen() {
                     label="Entropy (Order ↔ Chaos)"
                     value={emotional.entropy}
                     onValueChange={(value) => {
-                      const validValue = isNaN(value) || !isFinite(value) ? 0.5 : Math.max(0, Math.min(1, value));
+                      const validValue = isNaN(value) || !isFinite(value) ? 0.5 : Math.max(0, Math.min(1, Number(value.toFixed(2))));
                       setEmotional(prev => ({ ...prev, entropy: validValue }));
                     }}
                     min={0}
@@ -548,7 +587,7 @@ export default function ParadoxScreen() {
                         label="Target Coherence (φ-boundary)"
                         value={targetCoherence}
                         onValueChange={(value) => {
-                          const validValue = isNaN(value) || !isFinite(value) ? 0.75 : Math.max(0.5, Math.min(1.0, value));
+                          const validValue = isNaN(value) || !isFinite(value) ? 0.75 : Math.max(0.5, Math.min(1.0, Number(value.toFixed(2))));
                           setTargetCoherence(validValue);
                         }}
                         min={0.5}

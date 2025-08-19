@@ -68,18 +68,23 @@ function hybridSimilarity(text1: string, text2: string): number {
   if (!text1 || !text2) return 0;
   
   // Semantic distance (normalized Levenshtein)
-  const semanticDist = levenshteinDistance(text1.toLowerCase(), text2.toLowerCase()) / 
-                      Math.max(text1.length, text2.length);
+  const maxLength = Math.max(text1.length, text2.length);
+  if (maxLength === 0) return 1; // Both strings are empty
+  
+  const semanticDist = levenshteinDistance(text1.toLowerCase(), text2.toLowerCase()) / maxLength;
   
   // Word overlap
-  const words1 = new Set(text1.toLowerCase().split(/\s+/));
-  const words2 = new Set(text2.toLowerCase().split(/\s+/));
+  const words1 = new Set(text1.toLowerCase().split(/\s+/).filter(w => w.length > 0));
+  const words2 = new Set(text2.toLowerCase().split(/\s+/).filter(w => w.length > 0));
   const intersection = new Set([...words1].filter(x => words2.has(x)));
   const union = new Set([...words1, ...words2]);
   const wordOverlap = union.size > 0 ? intersection.size / union.size : 0;
   
-  // Combined similarity
-  return 0.6 * (1 - semanticDist) + 0.4 * wordOverlap;
+  // Combined similarity with safety checks
+  const similarity = 0.6 * (1 - semanticDist) + 0.4 * wordOverlap;
+  
+  // Ensure result is valid
+  return isNaN(similarity) || !isFinite(similarity) ? 0 : Math.max(0, Math.min(1, similarity));
 }
 
 // Memory Functions
@@ -220,28 +225,52 @@ function antonymOpposition(text1: string, text2: string): number {
 function emotionalDelta(emotion?: EmotionalVector): number {
   if (!emotion) return 0.5;
   
-  // Calculate emotional intensity and instability
-  const intensity = Math.abs(emotion.valence) + emotion.arousal + emotion.dominance;
-  const instability = emotion.entropy;
+  // Validate and sanitize emotional values
+  const safeValence = isNaN(emotion.valence) || !isFinite(emotion.valence) ? 0 : Math.max(-1, Math.min(1, emotion.valence));
+  const safeArousal = isNaN(emotion.arousal) || !isFinite(emotion.arousal) ? 0.5 : Math.max(0, Math.min(1, emotion.arousal));
+  const safeDominance = isNaN(emotion.dominance) || !isFinite(emotion.dominance) ? 0.5 : Math.max(0, Math.min(1, emotion.dominance));
+  const safeEntropy = isNaN(emotion.entropy) || !isFinite(emotion.entropy) ? 0.5 : Math.max(0, Math.min(1, emotion.entropy));
   
-  return Math.min(1, (intensity / 3 + instability) / 2);
+  // Calculate emotional intensity and instability with safe values
+  const intensity = Math.abs(safeValence) + safeArousal + safeDominance;
+  const instability = safeEntropy;
+  
+  const result = Math.min(1, (intensity / 3 + instability) / 2);
+  
+  // Final safety check
+  return isNaN(result) || !isFinite(result) ? 0.5 : result;
 }
 
 // TSVF Two-State Gate with Memory Enhancement
 function twoStateGate(candidate: string, T1: string, T2: string, memoryBoost: number = 0): number {
+  // Validate inputs
+  const safeMemoryBoost = isNaN(memoryBoost) || !isFinite(memoryBoost) ? 0 : memoryBoost;
+  
   const O = Math.max(EPS, hybridSimilarity(T1, T2)); // overlap of boundaries
   const S2 = hybridSimilarity(candidate, T1) * hybridSimilarity(candidate, T2); // two-state support
-  const W = S2 / O; // weak-style gain
+  
+  // Prevent division by zero or invalid values
+  const W = (O > EPS && isFinite(S2)) ? S2 / O : 0;
   
   // Memory enhancement: learned patterns boost the gate
-  const enhancedW = W + memoryBoost * 0.2;
+  const enhancedW = W + safeMemoryBoost * 0.2;
   
-  return sigmoid(TSVF_K * (enhancedW - 1/PHI)); // G₂ in [0,1]
+  const gateValue = sigmoid(TSVF_K * (enhancedW - 1/PHI));
+  
+  // Ensure result is valid
+  return isNaN(gateValue) || !isFinite(gateValue) ? 0.5 : gateValue;
 }
 
 function phiGate(similarity: number, opposition: number): number {
-  const tension = 1 - similarity + opposition;
-  return sigmoid(4 * (tension - 1/PHI));
+  // Validate inputs
+  const safeSimilarity = isNaN(similarity) || !isFinite(similarity) ? 0 : Math.max(0, Math.min(1, similarity));
+  const safeOpposition = isNaN(opposition) || !isFinite(opposition) ? 0 : Math.max(0, Math.min(1, opposition));
+  
+  const tension = 1 - safeSimilarity + safeOpposition;
+  const gateValue = sigmoid(4 * (tension - 1/PHI));
+  
+  // Ensure result is valid
+  return isNaN(gateValue) || !isFinite(gateValue) ? 0.5 : gateValue;
 }
 
 function chooseType(similarity: number, opposition: number, emotionalDelta: number): {

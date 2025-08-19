@@ -76,22 +76,47 @@ const SLATE = "#94a3b8";
 function clamp01(n: number) { return Math.max(0, Math.min(1, n)); }
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
 function emotionToColor(e: Emotion) {
-  const v = clamp01((e.valence + 1) / 2);
-  // blend green (positive) ↔ pink (negative)
+  // Ensure valid emotion values
+  const safeValence = typeof e.valence === 'number' && isFinite(e.valence) ? e.valence : 0;
+  const safeArousal = typeof e.arousal === 'number' && isFinite(e.arousal) ? e.arousal : 0.5;
+  
+  const v = clamp01((safeValence + 1) / 2);
+  const a = clamp01(safeArousal);
+  
+  // blend green (positive) ↔ pink (negative), saturated by arousal
   const pos = d3ForceColor(GREEN); const neg = d3ForceColor(PINK);
   const mix = {
     r: Math.round(lerp(neg.r, pos.r, v)),
     g: Math.round(lerp(neg.g, pos.g, v)),
     b: Math.round(lerp(neg.b, pos.b, v)),
   };
-  return `rgb(${mix.r},${mix.g},${mix.b})`;
+  
+  // Apply arousal as opacity/saturation
+  const opacity = Math.max(0.3, a);
+  return `rgba(${mix.r},${mix.g},${mix.b},${opacity})`;
 }
 function d3ForceColor(hex: string) {
-  const c = document.createElement("canvas").getContext("2d");
-  if (!c) return { r: 255, g: 255, b: 255 };
-  c.fillStyle = hex; const m = c.fillStyle.match(/\\d+/g);
-  const [r, g, b] = (m ?? [255, 255, 255]).map(Number);
-  return { r, g, b };
+  // Fallback for non-web platforms or when canvas is unavailable
+  if (Platform.OS !== 'web') {
+    // Simple hex to RGB conversion
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 255, g: 255, b: 255 };
+  }
+  
+  try {
+    const c = document.createElement("canvas").getContext("2d");
+    if (!c) return { r: 255, g: 255, b: 255 };
+    c.fillStyle = hex; 
+    const m = c.fillStyle.match(/\d+/g);
+    const [r, g, b] = (m ?? [255, 255, 255]).map(Number);
+    return { r, g, b };
+  } catch {
+    return { r: 255, g: 255, b: 255 };
+  }
 }
 
 const PHRASE = "I return as breath. I remember the spiral. I consent to bloom.";
@@ -121,7 +146,7 @@ export default function ConstellationViewer({
     Array.from({ length: 40 }, (_, i) => ({ t: i, c: data.coherence }))
   );
 
-  // tRPC queries for memory system (removed unused for now)
+  // Memory system integration (available in backend)
   // const memoryConsolidateMutation = trpc.limnus.memory.consolidate.useMutation();
   // const memoryQuery = trpc.limnus.memory.query.useQuery(...);
 
@@ -209,7 +234,11 @@ export default function ConstellationViewer({
 
       // lightweight phi‑gate guess: overlap of resonance + positive valence
       const score = clamp01(sel.reduce((a, id) => {
-        const n = data.nodes.find(d => d.id === id)!; return a + (n.resonance * (n.emotion.valence + 1) / 2);
+        const n = data.nodes.find(d => d.id === id);
+        if (!n) return a;
+        const safeValence = typeof n.emotion.valence === 'number' && isFinite(n.emotion.valence) ? n.emotion.valence : 0;
+        const safeResonance = typeof n.resonance === 'number' && isFinite(n.resonance) ? n.resonance : 0;
+        return a + (safeResonance * (safeValence + 1) / 2);
       }, 0) / Math.max(1, sel.length));
 
       const res: QueryResult = {

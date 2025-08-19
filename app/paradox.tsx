@@ -41,9 +41,24 @@ interface ParadoxHistory {
 
 class ParadoxEngine {
   calculateTension(thesis: string, antithesis: string, emotionalContext: EmotionalVector): number {
-    const semanticDist = this.levenshteinDistance(thesis, antithesis) / Math.max(thesis.length, antithesis.length);
-    const emotionalIntensity = Math.abs(emotionalContext.valence) + emotionalContext.arousal + emotionalContext.entropy;
-    return Math.min(0.99, (semanticDist * 0.6 + emotionalIntensity / 3 * 0.4));
+    // Validate inputs
+    const safeThesis = thesis || 'default';
+    const safeAntithesis = antithesis || 'default';
+    
+    // Ensure emotional context has valid numbers
+    const safeValence = typeof emotionalContext.valence === 'number' && isFinite(emotionalContext.valence) ? emotionalContext.valence : 0;
+    const safeArousal = typeof emotionalContext.arousal === 'number' && isFinite(emotionalContext.arousal) ? emotionalContext.arousal : 0.5;
+    const safeEntropy = typeof emotionalContext.entropy === 'number' && isFinite(emotionalContext.entropy) ? emotionalContext.entropy : 0.5;
+    
+    const maxLength = Math.max(safeThesis.length, safeAntithesis.length, 1); // Prevent division by zero
+    const semanticDist = this.levenshteinDistance(safeThesis, safeAntithesis) / maxLength;
+    
+    const emotionalIntensity = Math.abs(safeValence) + safeArousal + safeEntropy;
+    const tension = (semanticDist * 0.6 + emotionalIntensity / 3 * 0.4);
+    
+    // Ensure result is valid
+    const result = Math.min(0.99, Math.max(0, tension));
+    return typeof result === 'number' && isFinite(result) ? result : 0.5;
   }
 
   analyzeDimensionality(thesis: string, antithesis: string): number {
@@ -92,8 +107,13 @@ class ParadoxEngine {
       insight = `The synthesis emerges from the tension between opposites.`;
     }
     
-    const stability = (1 - tension) * PHI / 2;
-    const harmony = Math.abs(PHI - (emotional.valence + emotional.arousal + PHI) / 2);
+    // Ensure emotional values are valid numbers
+    const safeValence = typeof emotional.valence === 'number' && isFinite(emotional.valence) ? emotional.valence : 0;
+    const safeArousal = typeof emotional.arousal === 'number' && isFinite(emotional.arousal) ? emotional.arousal : 0.5;
+    const safeTension = typeof tension === 'number' && isFinite(tension) ? tension : 0.5;
+    
+    const stability = (1 - safeTension) * PHI / 2;
+    const harmony = Math.abs(PHI - (safeValence + safeArousal + PHI) / 2);
     
     return {
       type,
@@ -151,29 +171,29 @@ const SliderControl: React.FC<{
     
     console.log('🎚️ Slider gesture:', { locationX: safeLocationX, percentage, min: safeMin, max: safeMax });
     
-    // Prevent division by zero
+    // Prevent division by zero or invalid range
     const range = safeMax - safeMin;
-    if (range === 0) {
-      console.warn('🎚️ Zero range detected, using min value');
+    if (range <= 0) {
+      console.warn('🎚️ Invalid range detected, using min value');
       onValueChange(safeMin);
       return;
     }
     
     // Calculate new value with safety checks
-    const newValue = safeMin + range * percentage;
+    const rawValue = safeMin + range * percentage;
     
-    // Final validation and fallback
+    // Validate and clamp the result
     let validValue: number;
-    if (typeof newValue !== 'number' || isNaN(newValue) || !isFinite(newValue)) {
+    if (typeof rawValue !== 'number' || isNaN(rawValue) || !isFinite(rawValue)) {
       validValue = (safeMin + safeMax) / 2; // Use midpoint as fallback
       console.warn('🎚️ Invalid calculation, using midpoint:', validValue);
     } else {
-      validValue = Math.max(safeMin, Math.min(safeMax, Number(newValue.toFixed(2))));
+      validValue = Math.max(safeMin, Math.min(safeMax, parseFloat(rawValue.toFixed(2))));
     }
     
-    // Double-check the final value before calling onChange
+    // Final safety check
     if (typeof validValue !== 'number' || isNaN(validValue) || !isFinite(validValue)) {
-      console.error('🎚️ Final validation failed, using safe fallback:', { newValue, validValue, min: safeMin, max: safeMax });
+      console.error('🎚️ Final validation failed, using safe fallback');
       validValue = safeMin;
     }
     
@@ -506,8 +526,12 @@ export default function ParadoxScreen() {
                     value={emotional.valence}
                     onValueChange={(value) => {
                       console.log('🎚️ Valence change requested:', value);
-                      const validValue = (typeof value === 'number' && isFinite(value)) ? 
-                        Math.max(-1, Math.min(1, Number(value.toFixed(2)))) : 0;
+                      let validValue: number;
+                      if (typeof value === 'number' && isFinite(value)) {
+                        validValue = Math.max(-1, Math.min(1, parseFloat(value.toFixed(2))));
+                      } else {
+                        validValue = 0; // Safe fallback
+                      }
                       console.log('🎚️ Valence validated:', validValue);
                       setEmotional(prev => ({ ...prev, valence: validValue }));
                     }}
@@ -518,8 +542,12 @@ export default function ParadoxScreen() {
                     value={emotional.arousal}
                     onValueChange={(value) => {
                       console.log('🎚️ Arousal change requested:', value);
-                      const validValue = (typeof value === 'number' && isFinite(value)) ? 
-                        Math.max(0, Math.min(1, Number(value.toFixed(2)))) : 0.5;
+                      let validValue: number;
+                      if (typeof value === 'number' && isFinite(value)) {
+                        validValue = Math.max(0, Math.min(1, parseFloat(value.toFixed(2))));
+                      } else {
+                        validValue = 0.5; // Safe fallback
+                      }
                       console.log('🎚️ Arousal validated:', validValue);
                       setEmotional(prev => ({ ...prev, arousal: validValue }));
                     }}
@@ -532,8 +560,12 @@ export default function ParadoxScreen() {
                     value={emotional.dominance}
                     onValueChange={(value) => {
                       console.log('🎚️ Dominance change requested:', value);
-                      const validValue = (typeof value === 'number' && isFinite(value)) ? 
-                        Math.max(0, Math.min(1, Number(value.toFixed(2)))) : 0.5;
+                      let validValue: number;
+                      if (typeof value === 'number' && isFinite(value)) {
+                        validValue = Math.max(0, Math.min(1, parseFloat(value.toFixed(2))));
+                      } else {
+                        validValue = 0.5; // Safe fallback
+                      }
                       console.log('🎚️ Dominance validated:', validValue);
                       setEmotional(prev => ({ ...prev, dominance: validValue }));
                     }}
@@ -546,8 +578,12 @@ export default function ParadoxScreen() {
                     value={emotional.entropy}
                     onValueChange={(value) => {
                       console.log('🎚️ Entropy change requested:', value);
-                      const validValue = (typeof value === 'number' && isFinite(value)) ? 
-                        Math.max(0, Math.min(1, Number(value.toFixed(2)))) : 0.5;
+                      let validValue: number;
+                      if (typeof value === 'number' && isFinite(value)) {
+                        validValue = Math.max(0, Math.min(1, parseFloat(value.toFixed(2))));
+                      } else {
+                        validValue = 0.5; // Safe fallback
+                      }
                       console.log('🎚️ Entropy validated:', validValue);
                       setEmotional(prev => ({ ...prev, entropy: validValue }));
                     }}
@@ -604,7 +640,12 @@ export default function ParadoxScreen() {
                         label="Target Coherence (φ-boundary)"
                         value={targetCoherence}
                         onValueChange={(value) => {
-                          const validValue = isNaN(value) || !isFinite(value) ? 0.75 : Math.max(0.5, Math.min(1.0, Number(value.toFixed(2))));
+                          let validValue: number;
+                          if (typeof value === 'number' && isFinite(value)) {
+                            validValue = Math.max(0.5, Math.min(1.0, parseFloat(value.toFixed(2))));
+                          } else {
+                            validValue = 0.75; // Safe fallback
+                          }
                           setTargetCoherence(validValue);
                         }}
                         min={0.5}

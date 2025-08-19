@@ -7,6 +7,35 @@ import type {
   EmotionalVector,
   MemoryEvolutionEvent
 } from '@/types/limnus';
+import crypto from 'crypto';
+
+const PHI = 1.618033988749;
+const PHI_MINUS_1 = PHI - 1; // ≈0.618
+
+interface ParadoxMemory {
+  paradox_hash: string;
+  thesis: string;
+  antithesis: string;
+  synthesis?: string;
+  resolution_path: 'collapse' | 'transcend' | 'sustain';
+  coherence_delta: number;
+  final_coherence: number;
+  timestamp: number;
+  context_embeddings?: number[];
+  child_paradoxes: string[];
+  synthesis_symbol?: string;
+  session_id: string;
+  emotional_signature: EmotionalVector;
+}
+
+interface ParadoxGenealogy {
+  paradox_type: string;
+  baseline_coherence: number;
+  resolution_count: number;
+  transcendence_rate: number;
+  symbol_lineage: string[];
+  evolution_path: string[];
+}
 
 // In-memory storage for the constellation (in production, use a vector database)
 let globalConstellation: ConstellationMap = {
@@ -18,6 +47,11 @@ let globalConstellation: ConstellationMap = {
 let memoryPatterns: MemoryPattern[] = [];
 let evolutionHistory: MemoryEvolutionEvent[] = [];
 
+// Paradox-specific memory stores
+let paradoxMemories: Map<string, ParadoxMemory> = new Map();
+let paradoxGenealogies: Map<string, ParadoxGenealogy> = new Map();
+let coherenceBaselines: Map<string, number> = new Map();
+
 function calculateEmotionalDistance(a: EmotionalVector, b: EmotionalVector): number {
   return Math.sqrt(
     Math.pow(a.valence - b.valence, 2) +
@@ -25,6 +59,153 @@ function calculateEmotionalDistance(a: EmotionalVector, b: EmotionalVector): num
     Math.pow(a.dominance - b.dominance, 2) +
     Math.pow(a.entropy - b.entropy, 2)
   );
+}
+
+function generateParadoxHash(thesis: string, antithesis: string): string {
+  const content = `${thesis}|||${antithesis}`;
+  return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16);
+}
+
+function calculateTextSimilarity(text1: string, text2: string): number {
+  // Simple word-based similarity (in production, use proper embeddings)
+  const words1 = new Set(text1.toLowerCase().split(/\W+/));
+  const words2 = new Set(text2.toLowerCase().split(/\W+/));
+  
+  const intersection = new Set([...words1].filter(x => words2.has(x)));
+  const union = new Set([...words1, ...words2]);
+  
+  return intersection.size / union.size;
+}
+
+function findSimilarParadoxes(thesis: string, antithesis: string, threshold = 0.3): ParadoxMemory[] {
+  const similar: ParadoxMemory[] = [];
+  
+  for (const memory of paradoxMemories.values()) {
+    const thesisSim = calculateTextSimilarity(thesis, memory.thesis);
+    const antithesisSim = calculateTextSimilarity(antithesis, memory.antithesis);
+    const avgSim = (thesisSim + antithesisSim) / 2;
+    
+    if (avgSim >= threshold) {
+      similar.push(memory);
+    }
+  }
+  
+  return similar.sort((a, b) => b.final_coherence - a.final_coherence);
+}
+
+function getParadoxType(thesis: string, antithesis: string): string {
+  const thesisKey = thesis.toLowerCase().split(' ').slice(0, 2).join('_');
+  const antithesisKey = antithesis.toLowerCase().split(' ').slice(0, 2).join('_');
+  return `${thesisKey}_vs_${antithesisKey}`;
+}
+
+function consolidateParadoxMemory(paradoxData: {
+  thesis: string;
+  antithesis: string;
+  synthesis?: string;
+  resolution_path: 'collapse' | 'transcend' | 'sustain';
+  coherence_delta: number;
+  final_coherence: number;
+  synthesis_symbol?: string;
+  session_id: string;
+  emotional_context: EmotionalVector;
+}): { paradox_hash: string; similar_count: number; baseline_updated: boolean } {
+  const paradox_hash = generateParadoxHash(paradoxData.thesis, paradoxData.antithesis);
+  const paradox_type = getParadoxType(paradoxData.thesis, paradoxData.antithesis);
+  
+  // Find similar paradoxes for genealogy
+  const similar = findSimilarParadoxes(paradoxData.thesis, paradoxData.antithesis);
+  const child_paradoxes: string[] = [];
+  
+  // Create memory entry
+  const memory: ParadoxMemory = {
+    paradox_hash,
+    thesis: paradoxData.thesis,
+    antithesis: paradoxData.antithesis,
+    synthesis: paradoxData.synthesis,
+    resolution_path: paradoxData.resolution_path,
+    coherence_delta: paradoxData.coherence_delta,
+    final_coherence: paradoxData.final_coherence,
+    timestamp: Date.now(),
+    child_paradoxes,
+    synthesis_symbol: paradoxData.synthesis_symbol,
+    session_id: paradoxData.session_id,
+    emotional_signature: paradoxData.emotional_context
+  };
+  
+  // Store the memory
+  paradoxMemories.set(paradox_hash, memory);
+  
+  // Update coherence baseline for this type of paradox
+  const current_baseline = coherenceBaselines.get(paradox_type) || PHI_MINUS_1;
+  let baseline_updated = false;
+  
+  if (paradoxData.final_coherence > current_baseline) {
+    coherenceBaselines.set(paradox_type, paradoxData.final_coherence);
+    baseline_updated = true;
+  }
+  
+  // Update or create genealogy
+  let genealogy = paradoxGenealogies.get(paradox_type);
+  if (!genealogy) {
+    genealogy = {
+      paradox_type,
+      baseline_coherence: paradoxData.final_coherence,
+      resolution_count: 1,
+      transcendence_rate: paradoxData.resolution_path === 'transcend' ? 1 : 0,
+      symbol_lineage: paradoxData.synthesis_symbol ? [paradoxData.synthesis_symbol] : [],
+      evolution_path: [`Initial: ${paradoxData.resolution_path} (φ=${paradoxData.final_coherence.toFixed(4)})`]
+    };
+  } else {
+    genealogy.resolution_count += 1;
+    if (paradoxData.resolution_path === 'transcend') {
+      genealogy.transcendence_rate = (genealogy.transcendence_rate * (genealogy.resolution_count - 1) + 1) / genealogy.resolution_count;
+    } else {
+      genealogy.transcendence_rate = (genealogy.transcendence_rate * (genealogy.resolution_count - 1)) / genealogy.resolution_count;
+    }
+    
+    if (baseline_updated) {
+      genealogy.baseline_coherence = paradoxData.final_coherence;
+    }
+    
+    if (paradoxData.synthesis_symbol && !genealogy.symbol_lineage.includes(paradoxData.synthesis_symbol)) {
+      genealogy.symbol_lineage.push(paradoxData.synthesis_symbol);
+    }
+    
+    genealogy.evolution_path.push(
+      `${genealogy.resolution_count}: ${paradoxData.resolution_path} (φ=${paradoxData.final_coherence.toFixed(4)})`
+    );
+  }
+  
+  paradoxGenealogies.set(paradox_type, genealogy);
+  
+  // Record evolution event
+  evolutionHistory.push({
+    event_type: 'paradox_resolution',
+    timestamp: new Date().toISOString(),
+    source_session: paradoxData.session_id,
+    details: {
+      paradox_hash,
+      paradox_type,
+      resolution_path: paradoxData.resolution_path,
+      coherence_delta: paradoxData.coherence_delta,
+      baseline_updated
+    },
+    emotional_context: paradoxData.emotional_context
+  });
+  
+  console.log(`🧠 Paradox memory consolidated: ${paradox_hash}`);
+  console.log(`🌀 Type: ${paradox_type}, Resolution: ${paradoxData.resolution_path}`);
+  console.log(`φ Final coherence: ${paradoxData.final_coherence.toFixed(4)}`);
+  if (baseline_updated) {
+    console.log(`⚡ New baseline established for ${paradox_type}!`);
+  }
+  
+  return {
+    paradox_hash,
+    similar_count: similar.length,
+    baseline_updated
+  };
 }
 
 // Helper function to extract symbols from text (for future use)
@@ -209,7 +390,15 @@ export const memoryConsolidateProcedure = publicProcedure
         value: z.number(),
         context: z.string()
       })).optional(),
-      paradox_resolutions: z.array(z.string()).optional(),
+      paradox_resolutions: z.array(z.object({
+        thesis: z.string(),
+        antithesis: z.string(),
+        synthesis: z.string().optional(),
+        resolution_path: z.enum(['collapse', 'transcend', 'sustain']),
+        coherence_delta: z.number(),
+        final_coherence: z.number(),
+        synthesis_symbol: z.string().optional()
+      })).optional(),
       teaching_directive_themes: z.array(z.string()).optional()
     })),
     time_window_hours: z.number().optional().default(24),
@@ -221,11 +410,59 @@ export const memoryConsolidateProcedure = publicProcedure
     try {
       const constellation = consolidateSessionMemories(input.session_memories);
       
+      // Process paradox resolutions
+      let paradoxes_processed = 0;
+      let baselines_updated = 0;
+      
+      for (const memory of input.session_memories) {
+        if (memory.paradox_resolutions) {
+          const avgEmotion = memory.emotional_journey && memory.emotional_journey.length > 0 
+            ? memory.emotional_journey.reduce((acc, curr, idx, arr) => ({
+                valence: acc.valence + curr.valence / arr.length,
+                arousal: acc.arousal + curr.arousal / arr.length,
+                dominance: acc.dominance + curr.dominance / arr.length,
+                entropy: acc.entropy + curr.entropy / arr.length
+              }), { valence: 0, arousal: 0, dominance: 0, entropy: 0 })
+            : { valence: 0, arousal: 0.5, dominance: 0.5, entropy: 0.3 };
+          
+          for (const paradox of memory.paradox_resolutions) {
+            const result = consolidateParadoxMemory({
+              ...paradox,
+              session_id: memory.session_id,
+              emotional_context: avgEmotion
+            });
+            
+            paradoxes_processed++;
+            if (result.baseline_updated) baselines_updated++;
+          }
+        }
+      }
+      
+      // Calculate paradox genealogy statistics
+      const genealogy_stats = Array.from(paradoxGenealogies.values()).reduce((acc, gen) => {
+        acc.total_types++;
+        acc.total_resolutions += gen.resolution_count;
+        acc.avg_transcendence_rate += gen.transcendence_rate;
+        acc.symbols_evolved += gen.symbol_lineage.length;
+        return acc;
+      }, { total_types: 0, total_resolutions: 0, avg_transcendence_rate: 0, symbols_evolved: 0 });
+      
+      if (genealogy_stats.total_types > 0) {
+        genealogy_stats.avg_transcendence_rate /= genealogy_stats.total_types;
+      }
+      
       return {
         success: true,
         constellation,
         patterns_discovered: memoryPatterns.length,
         evolution_events: evolutionHistory.slice(-10), // Last 10 events
+        paradox_memory: {
+          paradoxes_processed,
+          baselines_updated,
+          total_paradox_memories: paradoxMemories.size,
+          genealogy_stats,
+          coherence_baselines: Object.fromEntries(coherenceBaselines)
+        },
         consolidation_summary: {
           sessions_processed: input.session_memories.length,
           symbols_tracked: constellation.nodes.length,
@@ -257,3 +494,11 @@ export const memoryConsolidateProcedure = publicProcedure
 export const getGlobalConstellation = () => globalConstellation;
 export const getMemoryPatterns = () => memoryPatterns;
 export const getEvolutionHistory = () => evolutionHistory;
+export const getParadoxMemories = () => paradoxMemories;
+export const getParadoxGenealogies = () => paradoxGenealogies;
+export const getCoherenceBaselines = () => coherenceBaselines;
+export const getSimilarParadoxes = findSimilarParadoxes;
+export const getParadoxStartingCoherence = (thesis: string, antithesis: string): number => {
+  const paradox_type = getParadoxType(thesis, antithesis);
+  return coherenceBaselines.get(paradox_type) || PHI_MINUS_1;
+};

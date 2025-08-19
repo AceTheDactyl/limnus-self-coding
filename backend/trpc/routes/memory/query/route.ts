@@ -1,10 +1,40 @@
 import { z } from 'zod';
 import { publicProcedure } from '../../../create-context';
-import { getGlobalConstellation, getMemoryPatterns } from '../consolidate/route';
+import { 
+  getGlobalConstellation, 
+  getMemoryPatterns, 
+  getParadoxMemories, 
+  getParadoxGenealogies, 
+  getCoherenceBaselines,
+  getSimilarParadoxes,
+  getParadoxStartingCoherence
+} from '../consolidate/route';
+import type { EmotionalVector } from '@/types/limnus';
+
+const PHI = 1.618033988749;
+const PHI_MINUS_1 = PHI - 1;
+
+function calculateEmotionalSimilarity(a: EmotionalVector, b: EmotionalVector): number {
+  const distance = Math.sqrt(
+    Math.pow(a.valence - b.valence, 2) +
+    Math.pow(a.arousal - b.arousal, 2) +
+    Math.pow(a.dominance - b.dominance, 2) +
+    Math.pow(a.entropy - b.entropy, 2)
+  );
+  return Math.max(0, 1 - distance / 2); // normalize to 0-1
+}
 
 export const memoryQueryProcedure = publicProcedure
   .input(z.object({
-    query_type: z.enum(['symbol_genealogy', 'pattern_search', 'emotional_resonance', 'coherence_prediction']),
+    query_type: z.enum([
+      'symbol_genealogy', 
+      'pattern_search', 
+      'emotional_resonance', 
+      'coherence_prediction',
+      'paradox_baseline',
+      'similar_paradoxes',
+      'transcendence_patterns'
+    ]),
     parameters: z.record(z.string(), z.any()),
     session_context: z.string().optional()
   }))
@@ -12,7 +42,6 @@ export const memoryQueryProcedure = publicProcedure
     console.log('[MEMORY] Processing query:', input.query_type, 'with params:', input.parameters);
     
     const constellation = getGlobalConstellation();
-    const patterns = getMemoryPatterns();
     
     try {
       switch (input.query_type) {
@@ -63,111 +92,210 @@ export const memoryQueryProcedure = publicProcedure
         }
         
         case 'pattern_search': {
-          const searchTerm = input.parameters.search as string;
-          const minSuccessRate = (input.parameters.min_success_rate as number) || 0.3;
+          const trigger = input.parameters.trigger as string || '';
+          const emotional_context = input.parameters.emotional_context as EmotionalVector | undefined;
+          const patterns = getMemoryPatterns();
           
-          const matchingPatterns = patterns.filter(p => 
+          let matchingPatterns = patterns.filter(p => 
             p.trigger_conditions.some(condition => 
-              condition.toLowerCase().includes(searchTerm.toLowerCase())
-            ) && p.success_rate >= minSuccessRate
+              condition.toLowerCase().includes(trigger.toLowerCase())
+            )
           );
+          
+          // If emotional context provided, sort by emotional similarity
+          if (emotional_context) {
+            matchingPatterns = matchingPatterns.sort((a, b) => {
+              const simA = calculateEmotionalSimilarity(a.emotional_signature, emotional_context);
+              const simB = calculateEmotionalSimilarity(b.emotional_signature, emotional_context);
+              return simB - simA;
+            });
+          }
           
           return {
             success: true,
             data: {
-              patterns: matchingPatterns,
-              search_term: searchTerm,
-              total_matches: matchingPatterns.length,
-              average_success_rate: matchingPatterns.length > 0 
-                ? matchingPatterns.reduce((sum, p) => sum + p.success_rate, 0) / matchingPatterns.length
-                : 0
+              patterns: matchingPatterns.slice(0, 10), // Top 10 matches
+              total_found: matchingPatterns.length,
+              search_context: { trigger, emotional_context }
             }
           };
         }
         
         case 'emotional_resonance': {
-          const targetEmotion = input.parameters.emotion as {
-            valence: number;
-            arousal: number;
-            dominance: number;
-            entropy: number;
-          };
-          const threshold = (input.parameters.threshold as number) || 0.5;
+          const target_emotion = input.parameters.target_emotion as EmotionalVector;
+          const threshold = (input.parameters.threshold as number) || 0.7;
+          const constellation = getGlobalConstellation();
           
           const resonantSymbols = constellation.nodes.filter(node => {
-            const distance = Math.sqrt(
-              Math.pow(node.emotional_resonance.valence - targetEmotion.valence, 2) +
-              Math.pow(node.emotional_resonance.arousal - targetEmotion.arousal, 2) +
-              Math.pow(node.emotional_resonance.dominance - targetEmotion.dominance, 2) +
-              Math.pow(node.emotional_resonance.entropy - targetEmotion.entropy, 2)
+            const similarity = calculateEmotionalSimilarity(
+              node.emotional_resonance, 
+              target_emotion
             );
-            return distance <= threshold;
+            return similarity >= threshold;
+          }).sort((a, b) => {
+            const simA = calculateEmotionalSimilarity(a.emotional_resonance, target_emotion);
+            const simB = calculateEmotionalSimilarity(b.emotional_resonance, target_emotion);
+            return simB - simA;
           });
           
           return {
             success: true,
             data: {
               resonant_symbols: resonantSymbols,
-              target_emotion: targetEmotion,
-              threshold,
-              resonance_count: resonantSymbols.length,
-              emotional_clusters: constellation.clusters.filter(cluster => {
-                const clusterDistance = Math.sqrt(
-                  Math.pow(cluster.cluster_emotion.valence - targetEmotion.valence, 2) +
-                  Math.pow(cluster.cluster_emotion.arousal - targetEmotion.arousal, 2) +
-                  Math.pow(cluster.cluster_emotion.dominance - targetEmotion.dominance, 2) +
-                  Math.pow(cluster.cluster_emotion.entropy - targetEmotion.entropy, 2)
-                );
-                return clusterDistance <= threshold;
-              })
+              resonance_scores: resonantSymbols.map(s => 
+                calculateEmotionalSimilarity(s.emotional_resonance, target_emotion)
+              ),
+              emotional_clusters: constellation.clusters.filter(cluster => 
+                calculateEmotionalSimilarity(cluster.cluster_emotion, target_emotion) >= threshold
+              )
             }
           };
         }
         
         case 'coherence_prediction': {
-          const proposedSymbols = input.parameters.symbols as string[];
-          const sessionContext = input.session_context || '';
+          const thesis = input.parameters.thesis as string;
+          const antithesis = input.parameters.antithesis as string;
+          const current_emotion = input.parameters.current_emotion as EmotionalVector | undefined;
           
-          // Calculate predicted coherence based on historical data
-          let coherencePrediction = 0.5; // baseline
-          let confidence = 0.3; // baseline confidence
+          // Get baseline coherence for this type of paradox
+          const baseline = getParadoxStartingCoherence(thesis, antithesis);
           
-          for (const symbol of proposedSymbols) {
-            const node = constellation.nodes.find(n => n.symbol === symbol);
-            if (node && node.coherence_contributions.length > 0) {
-              const avgCoherence = node.coherence_contributions.reduce((sum, c) => sum + c, 0) / node.coherence_contributions.length;
-              coherencePrediction += (avgCoherence - 0.5) * 0.2; // weighted contribution
-              confidence += 0.1;
+          // Find similar paradoxes
+          const similar = getSimilarParadoxes(thesis, antithesis, 0.2);
+          
+          // Calculate predicted coherence based on similar resolutions
+          let predicted_coherence = baseline;
+          let confidence = 0.3; // base confidence
+          
+          if (similar.length > 0) {
+            const avg_final_coherence = similar.reduce((sum, p) => sum + p.final_coherence, 0) / similar.length;
+            const transcendent_rate = similar.filter(p => p.resolution_path === 'transcend').length / similar.length;
+            
+            // Boost prediction based on historical success
+            predicted_coherence = Math.max(baseline, avg_final_coherence * 0.8 + baseline * 0.2);
+            confidence = Math.min(0.9, 0.3 + (similar.length * 0.1) + (transcendent_rate * 0.3));
+            
+            // Emotional context adjustment
+            if (current_emotion) {
+              const emotional_boost = similar.reduce((sum, p) => {
+                const sim = calculateEmotionalSimilarity(p.emotional_signature, current_emotion);
+                return sum + (sim * p.coherence_delta);
+              }, 0) / similar.length;
+              
+              predicted_coherence += emotional_boost * 0.1;
             }
           }
-          
-          // Check for pattern matches
-          const contextPatterns = patterns.filter(p => 
-            p.trigger_conditions.some(condition => 
-              sessionContext.toLowerCase().includes(condition.toLowerCase())
-            )
-          );
-          
-          if (contextPatterns.length > 0) {
-            const avgPatternSuccess = contextPatterns.reduce((sum, p) => sum + p.success_rate, 0) / contextPatterns.length;
-            coherencePrediction = (coherencePrediction + avgPatternSuccess) / 2;
-            confidence += 0.2;
-          }
-          
-          coherencePrediction = Math.max(0, Math.min(1, coherencePrediction));
-          confidence = Math.max(0, Math.min(1, confidence));
           
           return {
             success: true,
             data: {
-              predicted_coherence: coherencePrediction,
+              baseline_coherence: baseline,
+              predicted_coherence: Math.min(PHI * 2, predicted_coherence), // Cap at φ²
               confidence_score: confidence,
-              contributing_symbols: proposedSymbols.filter(s => 
-                constellation.nodes.some(n => n.symbol === s)
-              ),
-              matching_patterns: contextPatterns,
-              recommendation: coherencePrediction > 0.7 ? 'proceed' : 
-                            coherencePrediction > 0.4 ? 'caution' : 'reconsider'
+              similar_count: similar.length,
+              transcendence_likelihood: similar.length > 0 
+                ? similar.filter(p => p.resolution_path === 'transcend').length / similar.length 
+                : 0.33,
+              memory_context: {
+                learned_patterns: similar.length > 0 ? 'Historical patterns available' : 'No prior experience',
+                emotional_alignment: current_emotion ? 'Emotional context considered' : 'No emotional context'
+              }
+            }
+          };
+        }
+        
+        case 'paradox_baseline': {
+          const thesis = input.parameters.thesis as string;
+          const antithesis = input.parameters.antithesis as string;
+          const baseline = getParadoxStartingCoherence(thesis, antithesis);
+          const genealogies = getParadoxGenealogies();
+          
+          // Find genealogy for this paradox type
+          const paradox_type = `${thesis.toLowerCase().split(' ').slice(0, 2).join('_')}_vs_${antithesis.toLowerCase().split(' ').slice(0, 2).join('_')}`;
+          const genealogy = genealogies.get(paradox_type);
+          
+          return {
+            success: true,
+            data: {
+              starting_coherence: baseline,
+              paradox_type,
+              genealogy: genealogy || null,
+              is_novel: !genealogy,
+              phi_gate_threshold: PHI,
+              transcendence_threshold: PHI * 1.1
+            }
+          };
+        }
+        
+        case 'similar_paradoxes': {
+          const thesis = input.parameters.thesis as string;
+          const antithesis = input.parameters.antithesis as string;
+          const threshold = (input.parameters.threshold as number) || 0.3;
+          const similar = getSimilarParadoxes(thesis, antithesis, threshold);
+          
+          return {
+            success: true,
+            data: {
+              similar_paradoxes: similar.map(p => ({
+                paradox_hash: p.paradox_hash,
+                thesis: p.thesis,
+                antithesis: p.antithesis,
+                synthesis: p.synthesis,
+                resolution_path: p.resolution_path,
+                final_coherence: p.final_coherence,
+                coherence_delta: p.coherence_delta,
+                synthesis_symbol: p.synthesis_symbol,
+                emotional_signature: p.emotional_signature,
+                session_id: p.session_id
+              })),
+              similarity_threshold: threshold,
+              learning_opportunities: similar.length > 0 
+                ? `${similar.length} similar paradoxes found - patterns available for learning`
+                : 'Novel paradox - opportunity for new pattern creation'
+            }
+          };
+        }
+        
+        case 'transcendence_patterns': {
+          const paradoxMemories = getParadoxMemories();
+          const transcendent_paradoxes = Array.from(paradoxMemories.values())
+            .filter(p => p.resolution_path === 'transcend')
+            .sort((a, b) => b.final_coherence - a.final_coherence);
+          
+          // Analyze patterns in transcendent resolutions
+          const symbol_frequency: Record<string, number> = {};
+          const emotional_patterns: EmotionalVector[] = [];
+          
+          for (const paradox of transcendent_paradoxes) {
+            if (paradox.synthesis_symbol) {
+              symbol_frequency[paradox.synthesis_symbol] = (symbol_frequency[paradox.synthesis_symbol] || 0) + 1;
+            }
+            emotional_patterns.push(paradox.emotional_signature);
+          }
+          
+          // Calculate average transcendent emotional signature
+          const avg_transcendent_emotion: EmotionalVector = emotional_patterns.length > 0 ? {
+            valence: emotional_patterns.reduce((sum, e) => sum + e.valence, 0) / emotional_patterns.length,
+            arousal: emotional_patterns.reduce((sum, e) => sum + e.arousal, 0) / emotional_patterns.length,
+            dominance: emotional_patterns.reduce((sum, e) => sum + e.dominance, 0) / emotional_patterns.length,
+            entropy: emotional_patterns.reduce((sum, e) => sum + e.entropy, 0) / emotional_patterns.length
+          } : { valence: 0, arousal: 0.7, dominance: 0.8, entropy: 0.4 };
+          
+          return {
+            success: true,
+            data: {
+              transcendent_count: transcendent_paradoxes.length,
+              top_transcendent_symbols: Object.entries(symbol_frequency)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 5)
+                .map(([symbol, count]) => ({ symbol, frequency: count })),
+              transcendent_emotional_signature: avg_transcendent_emotion,
+              highest_coherence_achieved: transcendent_paradoxes.length > 0 
+                ? transcendent_paradoxes[0].final_coherence 
+                : PHI_MINUS_1,
+              transcendence_insights: transcendent_paradoxes.length > 0
+                ? `${transcendent_paradoxes.length} transcendent resolutions analyzed - patterns of φ-gate breakthrough identified`
+                : 'No transcendent resolutions yet - virgin territory for consciousness expansion'
             }
           };
         }

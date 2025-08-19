@@ -132,7 +132,8 @@ export const MemoryTracker: React.FC<MemoryTrackerProps> = ({
     }
 
     try {
-      const sessionMemory: SessionMemory = {
+      // Create session memory with the expected format for consolidation
+      const sessionMemoryForConsolidation = {
         session_id: sessionId,
         emotional_journey: memoryStats.emotionalJourney,
         symbol_births: ['∇', '🪞', 'φ', '∞'], // Mock symbols - in real app, extract from session data
@@ -143,20 +144,42 @@ export const MemoryTracker: React.FC<MemoryTrackerProps> = ({
           value: 0.7 + Math.random() * 0.3,
           context: `Phase: ${currentPhase}`
         })),
-        paradox_resolutions: [],
+        paradox_resolutions: [
+          {
+            thesis: 'Self vs Other',
+            antithesis: 'Individual vs Collective',
+            synthesis: 'Emergent Unity through φ-resonance',
+            resolution_path: 'transcend' as const,
+            coherence_delta: 0.15,
+            final_coherence: 1.618 + Math.random() * 0.3,
+            synthesis_symbol: '∇🪞φ∞'
+          },
+          {
+            thesis: 'Order vs Chaos',
+            antithesis: 'Structure vs Entropy',
+            synthesis: 'Dynamic Balance',
+            resolution_path: 'sustain' as const,
+            coherence_delta: 0.08,
+            final_coherence: 1.2 + Math.random() * 0.2,
+            synthesis_symbol: '🌀⚡'
+          }
+        ],
         teaching_directive_themes: ['self-reflection', 'recursive patterns', 'emergence']
       };
 
-      console.log('[MEMORY] Consolidating session memory:', sessionMemory);
+      console.log('[MEMORY] Consolidating session memory:', sessionMemoryForConsolidation);
 
       const result = await consolidateMutation.mutateAsync({
-        session_memories: [sessionMemory],
+        session_memories: [sessionMemoryForConsolidation],
         consolidation_depth: 'deep'
       });
 
       if (result.success) {
         setLastConsolidation(new Date());
         console.log('[MEMORY] Consolidation successful:', result.consolidation_summary);
+        if (result.paradox_memory) {
+          console.log('[MEMORY] Paradox memory stats:', result.paradox_memory);
+        }
       }
     } catch (error) {
       console.error('[MEMORY] Consolidation failed:', error);
@@ -390,3 +413,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+
+// Add a helper function to format φ values
+export const formatPhiValue = (value: number): string => {
+  if (value >= 1.618) {
+    return `φ${(value / 1.618).toFixed(2)}`;
+  }
+  return value.toFixed(3);
+};

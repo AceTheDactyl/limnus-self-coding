@@ -288,7 +288,7 @@ export interface MemoryQueryRequest {
 }
 
 export interface MemoryEvolutionEvent {
-  event_type: 'symbol_birth' | 'symbol_mutation' | 'pattern_emergence' | 'cluster_formation';
+  event_type: 'symbol_birth' | 'symbol_mutation' | 'pattern_emergence' | 'cluster_formation' | 'paradox_resolution';
   timestamp: string;
   source_session: string;
   details: Record<string, any>;

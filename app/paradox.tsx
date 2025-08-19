@@ -140,7 +140,8 @@ const SliderControl: React.FC<{
     const sliderWidth = 280;
     const percentage = Math.max(0, Math.min(1, locationX / sliderWidth));
     const newValue = min + (max - min) * percentage;
-    onValueChange(Number(newValue.toFixed(1)));
+    const validValue = isNaN(newValue) ? 0 : Number(newValue.toFixed(1));
+    onValueChange(validValue);
   };
 
   return (
@@ -167,7 +168,7 @@ const SliderControl: React.FC<{
           ]}
         />
       </View>
-      <Text style={styles.sliderValue}>{value}</Text>
+      <Text style={styles.sliderValue}>{isNaN(value) ? '0.0' : value.toFixed(1)}</Text>
     </View>
   );
 };
@@ -181,6 +182,16 @@ export default function ParadoxScreen() {
     dominance: 0.5,
     entropy: 0.8,
   });
+
+  // Ensure emotional values are always valid numbers
+  useEffect(() => {
+    setEmotional(prev => ({
+      valence: isNaN(prev.valence) ? 0.7 : prev.valence,
+      arousal: isNaN(prev.arousal) ? 0.9 : prev.arousal,
+      dominance: isNaN(prev.dominance) ? 0.5 : prev.dominance,
+      entropy: isNaN(prev.entropy) ? 0.8 : prev.entropy,
+    }));
+  }, []);
   const [targetCoherence, setTargetCoherence] = useState(0.90);
   const [targetDescriptor, setTargetDescriptor] = useState('Coherence ≥0.90 after 120s hold with accord recognized');
   const [targetSync, setTargetSync] = useState<'Passive' | 'Active' | 'Recursive'>('Active');

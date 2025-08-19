@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { trpc } from '@/lib/trpc';
+// import { trpc } from '@/lib/trpc';
 import { Platform, Text } from 'react-native';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -77,8 +77,7 @@ function clamp01(n: number) { return Math.max(0, Math.min(1, n)); }
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
 function emotionToColor(e: Emotion) {
   const v = clamp01((e.valence + 1) / 2);
-  const a = clamp01(e.arousal);
-  // blend green (positive) ↔ pink (negative), saturated by arousal
+  // blend green (positive) ↔ pink (negative)
   const pos = d3ForceColor(GREEN); const neg = d3ForceColor(PINK);
   const mix = {
     r: Math.round(lerp(neg.r, pos.r, v)),
@@ -122,8 +121,9 @@ export default function ConstellationViewer({
     Array.from({ length: 40 }, (_, i) => ({ t: i, c: data.coherence }))
   );
 
-  // tRPC queries for memory system
-  const memoryConsolidateMutation = trpc.limnus.memory.consolidate.useMutation();
+  // tRPC queries for memory system (removed unused for now)
+  // const memoryConsolidateMutation = trpc.limnus.memory.consolidate.useMutation();
+  // const memoryQuery = trpc.limnus.memory.query.useQuery(...);
 
   useEffect(() => setCoherence(data.coherence), [data.coherence]);
 
@@ -168,8 +168,8 @@ export default function ConstellationViewer({
     const sim = d3.forceSimulation(nodes as any)
       .force("charge", d3.forceManyBody().strength(-80))
       .force("center", d3.forceCenter(width / 2, heightPx / 2))
-      .force("link", d3.forceLink(links as any).id((d: any) => d.id).distance(d => 60 + 140 * (1 - ((d as any).weight || 0.5))))
-      .force("collision", d3.forceCollide().radius((d: any) => 20 + (d.resonance || 0) * 16))
+      .force("link", d3.forceLink(links as any).id((d: any) => d.id).distance(d => 60 + 140 * (1 - ((d as any).weight ?? 0.5))))
+      .force("collision", d3.forceCollide().radius((d: any) => 20 + (d.resonance ?? 0) * 16))
       .stop();
 
     simRef.current = sim;
@@ -317,7 +317,7 @@ export default function ConstellationViewer({
         )}
         {selected && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2"> <span className="text-xl">{selected.glyph ?? "•"}</span> <Badge variant="outline">{selected.type}</Badge> </div>
+            <div className="flex items-center gap-2"> <Text style={{ fontSize: 20 }}>{selected.glyph ?? "•"}</Text> <Badge variant="outline"><Text>{selected.type}</Text></Badge> </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Text style={{ color: '#64748b' }}>Resonance</Text>
@@ -386,7 +386,7 @@ export default function ConstellationViewer({
             </div>
             {results && (
               <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3 border">
-                <div className="text-sm text-slate-600">{results.summary}</div>
+                <Text style={{ fontSize: 14, color: '#64748b' }}>{results.summary}</Text>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="border-yellow-400 text-yellow-700"><Text>φ‑gate {(results.predictedPhiBreak! * 100).toFixed(0)}%</Text></Badge>
                   <Button size="sm" variant="ghost" onClick={() => setResults(null)}><X size={16} /></Button>

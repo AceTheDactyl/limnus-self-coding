@@ -160,11 +160,11 @@ const SliderControl: React.FC<{
     const sliderWidth = 280;
     
     // Ensure locationX is a valid number
-    const safeLocationX = typeof locationX === 'number' && isFinite(locationX) ? Math.max(0, locationX) : 0;
+    const safeLocationX = typeof locationX === 'number' && isFinite(locationX) && !isNaN(locationX) ? Math.max(0, locationX) : 0;
     
     // Ensure min and max are valid numbers
-    const safeMin = typeof min === 'number' && isFinite(min) ? min : -1;
-    const safeMax = typeof max === 'number' && isFinite(max) ? max : 1;
+    const safeMin = typeof min === 'number' && isFinite(min) && !isNaN(min) ? min : -1;
+    const safeMax = typeof max === 'number' && isFinite(max) && !isNaN(max) ? max : 1;
     
     // Prevent division by zero or invalid range
     const range = safeMax - safeMin;
@@ -212,15 +212,16 @@ const SliderControl: React.FC<{
             styles.sliderFill,
             {
               width: `${(() => {
-                const safeValue = typeof value === 'number' && isFinite(value) ? value : 0;
-                const safeMin = typeof min === 'number' && isFinite(min) ? min : -1;
-                const safeMax = typeof max === 'number' && isFinite(max) ? max : 1;
+                const safeValue = typeof value === 'number' && isFinite(value) && !isNaN(value) ? value : 0;
+                const safeMin = typeof min === 'number' && isFinite(min) && !isNaN(min) ? min : -1;
+                const safeMax = typeof max === 'number' && isFinite(max) && !isNaN(max) ? max : 1;
                 const range = safeMax - safeMin;
                 
                 if (range <= 0) return 0;
                 
                 const percentage = ((safeValue - safeMin) / range) * 100;
-                return Math.max(0, Math.min(100, percentage));
+                const finalPercentage = Math.max(0, Math.min(100, percentage));
+                return isNaN(finalPercentage) ? 0 : finalPercentage;
               })()}%`,
             },
           ]}
@@ -230,15 +231,16 @@ const SliderControl: React.FC<{
             styles.sliderThumb,
             {
               left: `${(() => {
-                const safeValue = typeof value === 'number' && isFinite(value) ? value : 0;
-                const safeMin = typeof min === 'number' && isFinite(min) ? min : -1;
-                const safeMax = typeof max === 'number' && isFinite(max) ? max : 1;
+                const safeValue = typeof value === 'number' && isFinite(value) && !isNaN(value) ? value : 0;
+                const safeMin = typeof min === 'number' && isFinite(min) && !isNaN(min) ? min : -1;
+                const safeMax = typeof max === 'number' && isFinite(max) && !isNaN(max) ? max : 1;
                 const range = safeMax - safeMin;
                 
                 if (range <= 0) return 0;
                 
                 const percentage = ((safeValue - safeMin) / range) * 100;
-                return Math.max(0, Math.min(100, percentage));
+                const finalPercentage = Math.max(0, Math.min(100, percentage));
+                return isNaN(finalPercentage) ? 0 : finalPercentage;
               })()}%`,
             },
           ]}
@@ -246,7 +248,7 @@ const SliderControl: React.FC<{
       </View>
       <Text style={styles.sliderValue}>
         {(() => {
-          const safeValue = typeof value === 'number' && isFinite(value) ? value : 0;
+          const safeValue = typeof value === 'number' && isFinite(value) && !isNaN(value) ? value : 0;
           return safeValue.toFixed(1);
         })()}
       </Text>

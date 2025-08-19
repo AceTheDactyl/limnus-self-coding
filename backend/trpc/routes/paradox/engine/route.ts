@@ -73,6 +73,10 @@ function hybridSimilarity(text1: string, text2: string): number {
   
   const semanticDist = levenshteinDistance(text1.toLowerCase(), text2.toLowerCase()) / maxLength;
   
+  // Validate semantic distance
+  const safeSemanticDist = (typeof semanticDist === 'number' && isFinite(semanticDist) && !isNaN(semanticDist)) ? 
+    Math.max(0, Math.min(1, semanticDist)) : 1;
+  
   // Word overlap
   const words1 = new Set(text1.toLowerCase().split(/\s+/).filter(w => w.length > 0));
   const words2 = new Set(text2.toLowerCase().split(/\s+/).filter(w => w.length > 0));
@@ -80,18 +84,22 @@ function hybridSimilarity(text1: string, text2: string): number {
   const union = new Set([...words1, ...words2]);
   const wordOverlap = union.size > 0 ? intersection.size / union.size : 0;
   
+  // Validate word overlap
+  const safeWordOverlap = (typeof wordOverlap === 'number' && isFinite(wordOverlap) && !isNaN(wordOverlap)) ? 
+    Math.max(0, Math.min(1, wordOverlap)) : 0;
+  
   // Combined similarity with safety checks
-  const similarity = 0.6 * (1 - semanticDist) + 0.4 * wordOverlap;
+  const similarity = 0.6 * (1 - safeSemanticDist) + 0.4 * safeWordOverlap;
   
   // Ensure result is valid with detailed logging
-  const finalSimilarity = (typeof similarity === 'number' && isFinite(similarity)) ? 
+  const finalSimilarity = (typeof similarity === 'number' && isFinite(similarity) && !isNaN(similarity)) ? 
     Math.max(0, Math.min(1, similarity)) : 0;
   
   console.log('🔧 Hybrid similarity:', {
     text1: text1.substring(0, 30),
     text2: text2.substring(0, 30),
-    semanticDist,
-    wordOverlap,
+    semanticDist: safeSemanticDist,
+    wordOverlap: safeWordOverlap,
     similarity,
     finalSimilarity
   });
@@ -238,13 +246,13 @@ function emotionalDelta(emotion?: EmotionalVector): number {
   if (!emotion) return 0.5;
   
   // Validate and sanitize emotional values with proper defaults
-  const safeValence = (typeof emotion.valence === 'number' && isFinite(emotion.valence)) ? 
+  const safeValence = (typeof emotion.valence === 'number' && isFinite(emotion.valence) && !isNaN(emotion.valence)) ? 
     Math.max(-1, Math.min(1, emotion.valence)) : 0;
-  const safeArousal = (typeof emotion.arousal === 'number' && isFinite(emotion.arousal)) ? 
+  const safeArousal = (typeof emotion.arousal === 'number' && isFinite(emotion.arousal) && !isNaN(emotion.arousal)) ? 
     Math.max(0, Math.min(1, emotion.arousal)) : 0.5;
-  const safeDominance = (typeof emotion.dominance === 'number' && isFinite(emotion.dominance)) ? 
+  const safeDominance = (typeof emotion.dominance === 'number' && isFinite(emotion.dominance) && !isNaN(emotion.dominance)) ? 
     Math.max(0, Math.min(1, emotion.dominance)) : 0.5;
-  const safeEntropy = (typeof emotion.entropy === 'number' && isFinite(emotion.entropy)) ? 
+  const safeEntropy = (typeof emotion.entropy === 'number' && isFinite(emotion.entropy) && !isNaN(emotion.entropy)) ? 
     Math.max(0, Math.min(1, emotion.entropy)) : 0.5;
   
   console.log('🔧 Emotional delta calculation:', {
@@ -256,12 +264,14 @@ function emotionalDelta(emotion?: EmotionalVector): number {
   const intensity = Math.abs(safeValence) + safeArousal + safeDominance;
   const instability = safeEntropy;
   
-  const result = Math.min(1, (intensity / 3 + instability) / 2);
+  // Ensure no division by zero or invalid operations
+  const rawResult = (intensity / 3 + instability) / 2;
+  const result = Math.min(1, Math.max(0, rawResult));
   
   // Final safety check with logging
-  const finalResult = (typeof result === 'number' && isFinite(result)) ? result : 0.5;
+  const finalResult = (typeof result === 'number' && isFinite(result) && !isNaN(result)) ? result : 0.5;
   
-  console.log('🔧 Emotional delta result:', { intensity, instability, result, finalResult });
+  console.log('🔧 Emotional delta result:', { intensity, instability, rawResult, result, finalResult });
   
   return finalResult;
 }
@@ -269,53 +279,63 @@ function emotionalDelta(emotion?: EmotionalVector): number {
 // TSVF Two-State Gate with Memory Enhancement
 function twoStateGate(candidate: string, T1: string, T2: string, memoryBoost: number = 0): number {
   // Validate inputs with proper type checking
-  const safeMemoryBoost = (typeof memoryBoost === 'number' && isFinite(memoryBoost)) ? memoryBoost : 0;
+  const safeMemoryBoost = (typeof memoryBoost === 'number' && isFinite(memoryBoost) && !isNaN(memoryBoost)) ? memoryBoost : 0;
   
   const O = Math.max(EPS, hybridSimilarity(T1, T2)); // overlap of boundaries
   const S1 = hybridSimilarity(candidate, T1);
   const S2_target = hybridSimilarity(candidate, T2);
   const S2 = S1 * S2_target; // two-state support
   
+  // Validate all intermediate calculations
+  const safeO = (typeof O === 'number' && isFinite(O) && !isNaN(O)) ? Math.max(EPS, O) : EPS;
+  const safeS1 = (typeof S1 === 'number' && isFinite(S1) && !isNaN(S1)) ? S1 : 0;
+  const safeS2_target = (typeof S2_target === 'number' && isFinite(S2_target) && !isNaN(S2_target)) ? S2_target : 0;
+  const safeS2 = (typeof S2 === 'number' && isFinite(S2) && !isNaN(S2)) ? S2 : 0;
+  
   console.log('🔧 Two-state gate calculation:', {
     candidate: candidate.substring(0, 30),
     T1: T1.substring(0, 30),
     T2: T2.substring(0, 30),
-    O, S1, S2_target, S2, memoryBoost: safeMemoryBoost
+    O: safeO, S1: safeS1, S2_target: safeS2_target, S2: safeS2, memoryBoost: safeMemoryBoost
   });
   
   // Prevent division by zero or invalid values
-  const W = (O > EPS && typeof S2 === 'number' && isFinite(S2)) ? S2 / O : 0;
+  const W = (safeO > EPS) ? safeS2 / safeO : 0;
+  const safeW = (typeof W === 'number' && isFinite(W) && !isNaN(W)) ? W : 0;
   
   // Memory enhancement: learned patterns boost the gate
-  const enhancedW = W + safeMemoryBoost * 0.2;
+  const enhancedW = safeW + safeMemoryBoost * 0.2;
+  const safeEnhancedW = (typeof enhancedW === 'number' && isFinite(enhancedW) && !isNaN(enhancedW)) ? enhancedW : 0;
   
-  const gateValue = sigmoid(TSVF_K * (enhancedW - 1/PHI));
+  const gateValue = sigmoid(TSVF_K * (safeEnhancedW - 1/PHI));
   
-  console.log('🔧 Two-state gate result:', { W, enhancedW, gateValue });
+  console.log('🔧 Two-state gate result:', { W: safeW, enhancedW: safeEnhancedW, gateValue });
   
   // Ensure result is valid
-  const finalGate = (typeof gateValue === 'number' && isFinite(gateValue)) ? gateValue : 0.5;
+  const finalGate = (typeof gateValue === 'number' && isFinite(gateValue) && !isNaN(gateValue)) ? gateValue : 0.5;
   return finalGate;
 }
 
 function phiGate(similarity: number, opposition: number): number {
   // Validate inputs with proper type checking
-  const safeSimilarity = (typeof similarity === 'number' && isFinite(similarity)) ? 
+  const safeSimilarity = (typeof similarity === 'number' && isFinite(similarity) && !isNaN(similarity)) ? 
     Math.max(0, Math.min(1, similarity)) : 0;
-  const safeOpposition = (typeof opposition === 'number' && isFinite(opposition)) ? 
+  const safeOpposition = (typeof opposition === 'number' && isFinite(opposition) && !isNaN(opposition)) ? 
     Math.max(0, Math.min(1, opposition)) : 0;
   
   const tension = 1 - safeSimilarity + safeOpposition;
-  const gateValue = sigmoid(4 * (tension - 1/PHI));
+  const safeTension = (typeof tension === 'number' && isFinite(tension) && !isNaN(tension)) ? tension : 1;
+  
+  const gateValue = sigmoid(4 * (safeTension - 1/PHI));
   
   console.log('🔧 Phi gate calculation:', {
     similarity, opposition,
     safeSimilarity, safeOpposition,
-    tension, gateValue
+    tension: safeTension, gateValue
   });
   
   // Ensure result is valid
-  const finalGate = (typeof gateValue === 'number' && isFinite(gateValue)) ? gateValue : 0.5;
+  const finalGate = (typeof gateValue === 'number' && isFinite(gateValue) && !isNaN(gateValue)) ? gateValue : 0.5;
   return finalGate;
 }
 

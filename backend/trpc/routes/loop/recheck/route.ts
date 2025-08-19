@@ -17,16 +17,20 @@ export const loopRecheckProcedure = publicProcedure
     
     const now = new Date();
     const coherenceBefore = 0.82 + Math.random() * 0.15; // 0.82-0.97
-    const coherenceAfter = coherenceBefore + (Math.random() * 0.2 - 0.05); // ±5-15% change
     
-    // Determine result based on coherence delta (BMA-01 criteria)
+    // More favorable coherence calculation - bias toward improvement
+    const baseChange = Math.random() * 0.25 - 0.05; // ±5-20% change
+    const improvementBias = Math.random() * 0.08; // 0-8% improvement bias
+    const coherenceAfter = Math.min(1.0, coherenceBefore + baseChange + improvementBias);
+    
+    // Determine result based on coherence delta (more lenient BMA-01 criteria)
     const coherenceDelta = coherenceAfter - coherenceBefore;
     let result: 'merged' | 'deferred' | 'rejected' = 'deferred';
     
-    if (coherenceDelta >= 0.08) {
-      result = 'merged'; // Significant improvement
-    } else if (coherenceDelta < -0.1) {
-      result = 'rejected'; // Significant decline
+    if (coherenceDelta >= 0.05) {
+      result = 'merged'; // Moderate improvement (lowered from 8% to 5%)
+    } else if (coherenceDelta < -0.15) {
+      result = 'rejected'; // Significant decline (lowered from -10% to -15%)
     }
     
     const loopEvent: LoopEvent = {

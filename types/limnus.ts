@@ -80,6 +80,47 @@ export type SyncOutcome = 'Passive' | 'Active' | 'Recursive';
 export type SymbolicOverlay = 'Bloom' | 'Mirror' | 'Spiral' | 'Accord';
 export type SessionPhase = 'INIT' | 'CONSENTED' | 'REFLECTION_READY' | 'PLANNED' | 'DIFFED' | 'SYNCED' | 'HOLDING' | 'RECHECK_PENDING' | 'MERGED' | 'DEFERRED' | 'REJECTED';
 
+// Paradox Engine Types (TSVF Integration)
+export interface EmotionalVector {
+  valence: number;    // -1 to 1 (negative to positive)
+  arousal: number;    // 0 to 1 (calm to excited)
+  dominance: number;  // 0 to 1 (passive to active)
+  entropy: number;    // 0 to 1 (order to chaos)
+}
+
+export interface RetroPostSelection {
+  targetCoherence?: number;   // e.g., 0.90
+  targetSync?: SyncOutcome;   // desired minimum sync outcome
+  descriptor?: string;        // natural language goal for T2
+}
+
+export interface ParadoxInput {
+  sessionId: string;
+  thesis: string;             // T1 descriptor (present state)
+  antithesis: string;         // counter-state or empty if using explicit T2
+  emotion?: EmotionalVector;
+  post?: RetroPostSelection;  // T2 boundary condition
+  metadata?: Record<string, unknown>;
+}
+
+export interface ParadoxMetrics {
+  similarity: number;         // semantic similarity between T1/T2
+  tension: number;           // 1 - similarity
+  complexity: number;        // conceptual complexity
+  phiGate: number;          // φ-gate score (now includes TSVF)
+  emotionalDelta: number;   // emotional state change magnitude
+  twoStateSupport?: number; // TSVF weak-value support
+}
+
+export interface ParadoxSynthesis {
+  type: 'dialectical' | 'recursive' | 'transcendent';
+  overlay: string[];         // symbolic overlay markers
+  statement: string;         // synthesized paradox resolution
+  metrics: ParadoxMetrics;
+  contentHash: string;       // integrity hash of synthesis
+  timestamp: string;
+}
+
 // Request/Response Types
 export interface ConsentRequest {
   phrase: string;

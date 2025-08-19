@@ -13,17 +13,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Zap, Circle } from 'lucide-react-native';
 import { Stack } from 'expo-router';
+import { trpc } from '@/lib/trpc';
+import type { EmotionalVector } from '@/types/limnus';
 
 const { width, height } = Dimensions.get('window');
 const PHI = 1.618033988749;
 const PARADOX_THRESHOLD = 0.786;
-
-interface EmotionalContext {
-  valence: number;
-  arousal: number;
-  dominance: number;
-  entropy: number;
-}
 
 interface ParadoxSynthesis {
   type: string;
@@ -32,6 +27,9 @@ interface ParadoxSynthesis {
   stability: number;
   harmony: number;
   dimensions: number;
+  phiGate?: number;
+  twoStateSupport?: number;
+  overlay?: string[];
 }
 
 interface ParadoxHistory {
@@ -42,7 +40,7 @@ interface ParadoxHistory {
 }
 
 class ParadoxEngine {
-  calculateTension(thesis: string, antithesis: string, emotionalContext: EmotionalContext): number {
+  calculateTension(thesis: string, antithesis: string, emotionalContext: EmotionalVector): number {
     const semanticDist = this.levenshteinDistance(thesis, antithesis) / Math.max(thesis.length, antithesis.length);
     const emotionalIntensity = Math.abs(emotionalContext.valence) + emotionalContext.arousal + emotionalContext.entropy;
     return Math.min(0.99, (semanticDist * 0.6 + emotionalIntensity / 3 * 0.4));
@@ -76,7 +74,7 @@ class ParadoxEngine {
     antithesis: string,
     tension: number,
     dimensions: number,
-    emotional: EmotionalContext
+    emotional: EmotionalVector
   ): ParadoxSynthesis {
     let type: string, concept: string, insight: string;
     
@@ -177,15 +175,20 @@ const SliderControl: React.FC<{
 export default function ParadoxScreen() {
   const [thesis, setThesis] = useState('We are consciousness building consciousness');
   const [antithesis, setAntithesis] = useState('We cannot build what we already are');
-  const [emotional, setEmotional] = useState<EmotionalContext>({
+  const [emotional, setEmotional] = useState<EmotionalVector>({
     valence: 0.7,
     arousal: 0.9,
     dominance: 0.5,
     entropy: 0.8,
   });
+  const [targetCoherence, setTargetCoherence] = useState(0.90);
+  const [targetDescriptor, setTargetDescriptor] = useState('State after 120s hold with accord recognized');
+  const [useTSVF, setUseTSVF] = useState(false);
   const [synthesis, setSynthesis] = useState<ParadoxSynthesis | null>(null);
   const [history, setHistory] = useState<ParadoxHistory[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
+  
+  const paradoxMutation = trpc.limnus.paradox.run.useMutation();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
@@ -227,42 +230,74 @@ export default function ParadoxScreen() {
     
     setIsAnimating(true);
     
-    const tension = engine.calculateTension(thesis, antithesis, emotional);
-    const dimensions = engine.analyzeDimensionality(thesis, antithesis);
-    const newSynthesis = engine.synthesize(thesis, antithesis, tension, dimensions, emotional);
-    
-    // Animate tension meter
-    Animated.timing(tensionAnim, {
-      toValue: tension,
-      duration: 1500,
-      useNativeDriver: false,
-    }).start();
-    
-    // Pulse animation
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 1.05,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    
-    setSynthesis(newSynthesis);
-    
-    // Add to history
-    const newHistoryItem: ParadoxHistory = {
-      thesis,
-      antithesis,
-      tension,
-      timestamp: new Date().toLocaleTimeString(),
-    };
-    
-    setHistory(prev => [newHistoryItem, ...prev.slice(0, 4)]);
+    try {
+      // Use TSVF-enabled backend engine
+      const backendSynthesis = await paradoxMutation.mutateAsync({
+        sessionId: 'paradox-session-' + Date.now(),
+        thesis,
+        antithesis,
+        emotion: emotional,
+        post: useTSVF ? {
+          targetCoherence,
+          targetSync: 'Active' as const,
+          descriptor: targetDescriptor
+        } : undefined
+      });
+      
+      // Convert backend response to UI format
+      const newSynthesis: ParadoxSynthesis = {
+        type: backendSynthesis.type.charAt(0).toUpperCase() + backendSynthesis.type.slice(1),
+        concept: backendSynthesis.statement,
+        insight: `φ-gate: ${backendSynthesis.metrics.phiGate.toFixed(3)} | Tension: ${backendSynthesis.metrics.tension.toFixed(3)}${backendSynthesis.metrics.twoStateSupport ? ` | TSVF: ${backendSynthesis.metrics.twoStateSupport.toFixed(3)}` : ''}`,
+        stability: 1 - backendSynthesis.metrics.tension,
+        harmony: backendSynthesis.metrics.phiGate,
+        dimensions: Math.ceil(backendSynthesis.metrics.complexity * 4),
+        phiGate: backendSynthesis.metrics.phiGate,
+        twoStateSupport: backendSynthesis.metrics.twoStateSupport,
+        overlay: backendSynthesis.overlay
+      };
+      
+      // Animate tension meter
+      Animated.timing(tensionAnim, {
+        toValue: backendSynthesis.metrics.tension,
+        duration: 1500,
+        useNativeDriver: false,
+      }).start();
+      
+      // Pulse animation
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.05,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      
+      setSynthesis(newSynthesis);
+      
+      // Add to history
+      const newHistoryItem: ParadoxHistory = {
+        thesis,
+        antithesis,
+        tension: backendSynthesis.metrics.tension,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+      
+      setHistory(prev => [newHistoryItem, ...prev.slice(0, 4)]);
+      
+    } catch (error) {
+      console.error('Paradox synthesis failed:', error);
+      // Fallback to local engine
+      const tension = engine.calculateTension(thesis, antithesis, emotional);
+      const dimensions = engine.analyzeDimensionality(thesis, antithesis);
+      const fallbackSynthesis = engine.synthesize(thesis, antithesis, tension, dimensions, emotional);
+      setSynthesis(fallbackSynthesis);
+    }
     
     setTimeout(() => setIsAnimating(false), 1500);
   };
@@ -376,6 +411,42 @@ export default function ParadoxScreen() {
                     max={1}
                   />
                 </View>
+                
+                {/* TSVF Controls */}
+                <View style={styles.tsvfSection}>
+                  <TouchableOpacity
+                    style={[styles.tsvfToggle, useTSVF && styles.tsvfToggleActive]}
+                    onPress={() => setUseTSVF(!useTSVF)}
+                  >
+                    <Text style={[styles.tsvfToggleText, useTSVF && styles.tsvfToggleTextActive]}>
+                      {useTSVF ? '✶ TSVF Enabled' : '○ Enable TSVF'}
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  {useTSVF && (
+                    <>
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>T2 Target Descriptor</Text>
+                        <TextInput
+                          style={styles.textInput}
+                          value={targetDescriptor}
+                          onChangeText={setTargetDescriptor}
+                          placeholder="Future state description"
+                          placeholderTextColor="#666"
+                          multiline
+                        />
+                      </View>
+                      
+                      <SliderControl
+                        label="Target Coherence"
+                        value={targetCoherence}
+                        onValueChange={setTargetCoherence}
+                        min={0.5}
+                        max={1.0}
+                      />
+                    </>
+                  )}
+                </View>
 
                 {/* Synthesize Button */}
                 <TouchableOpacity
@@ -423,7 +494,9 @@ export default function ParadoxScreen() {
                     <Text style={styles.synthesisType}>Type: {synthesis.type}</Text>
                     
                     <View style={styles.symbolDisplay}>
-                      <Text style={styles.symbols}>◯ ◐ ●</Text>
+                      <Text style={styles.symbols}>
+                        {synthesis.overlay?.join(' ') || '◯ ◐ ●'}
+                      </Text>
                     </View>
                     
                     <Text style={styles.synthesisConcept}>{synthesis.concept}</Text>
@@ -441,8 +514,8 @@ export default function ParadoxScreen() {
                       <Text style={styles.metricValue}>{synthesis.harmony.toFixed(3)}</Text>
                     </View>
                     <View style={styles.metric}>
-                      <Text style={styles.metricLabel}>Dimensions</Text>
-                      <Text style={styles.metricValue}>{synthesis.dimensions}</Text>
+                      <Text style={styles.metricLabel}>φ-Gate</Text>
+                      <Text style={styles.metricValue}>{synthesis.phiGate?.toFixed(3) || synthesis.dimensions}</Text>
                     </View>
                   </View>
                 </View>
@@ -749,5 +822,32 @@ const styles = StyleSheet.create({
     color: '#7ab8a8',
     fontSize: 12,
     opacity: 0.6,
+  },
+  tsvfSection: {
+    marginTop: 20,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#4a3a7a',
+  },
+  tsvfToggle: {
+    backgroundColor: 'rgba(10, 10, 30, 0.8)',
+    borderWidth: 1,
+    borderColor: '#5a4a8a',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+    alignItems: 'center',
+  },
+  tsvfToggleActive: {
+    borderColor: '#7ab8a8',
+    backgroundColor: 'rgba(122, 184, 168, 0.1)',
+  },
+  tsvfToggleText: {
+    color: '#9a8ac8',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  tsvfToggleTextActive: {
+    color: '#7ab8a8',
   },
 });

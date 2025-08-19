@@ -242,38 +242,47 @@ function antonymOpposition(text1: string, text2: string): number {
   return Math.min(1, oppositionScore);
 }
 
+// Simplified emotional delta calculation with semantic meaning
 function emotionalDelta(emotion?: EmotionalVector): number {
-  if (!emotion) return 0.5;
+  if (!emotion) {
+    console.log('🎭 No emotion provided, using neutral baseline: 0.5');
+    return 0.5;
+  }
   
-  // Validate and sanitize emotional values with proper defaults
-  const safeValence = (typeof emotion.valence === 'number' && isFinite(emotion.valence) && !isNaN(emotion.valence)) ? 
-    Math.max(-1, Math.min(1, emotion.valence)) : 0;
-  const safeArousal = (typeof emotion.arousal === 'number' && isFinite(emotion.arousal) && !isNaN(emotion.arousal)) ? 
-    Math.max(0, Math.min(1, emotion.arousal)) : 0.5;
-  const safeDominance = (typeof emotion.dominance === 'number' && isFinite(emotion.dominance) && !isNaN(emotion.dominance)) ? 
-    Math.max(0, Math.min(1, emotion.dominance)) : 0.5;
-  const safeEntropy = (typeof emotion.entropy === 'number' && isFinite(emotion.entropy) && !isNaN(emotion.entropy)) ? 
-    Math.max(0, Math.min(1, emotion.entropy)) : 0.5;
+  // Simple validation with meaningful defaults
+  const valence = Number.isFinite(emotion.valence) ? Math.max(-1, Math.min(1, emotion.valence)) : 0;
+  const arousal = Number.isFinite(emotion.arousal) ? Math.max(0, Math.min(1, emotion.arousal)) : 0.5;
+  const dominance = Number.isFinite(emotion.dominance) ? Math.max(0, Math.min(1, emotion.dominance)) : 0.5;
+  const entropy = Number.isFinite(emotion.entropy) ? Math.max(0, Math.min(1, emotion.entropy)) : 0.5;
   
-  console.log('🔧 Emotional delta calculation:', {
-    input: emotion,
-    safe: { valence: safeValence, arousal: safeArousal, dominance: safeDominance, entropy: safeEntropy }
+  // Emotional complexity based on psychological theory
+  // High arousal + high entropy = high complexity
+  // Extreme valence (positive or negative) = high complexity
+  // High dominance = moderate complexity boost
+  
+  const valenceIntensity = Math.abs(valence); // 0-1: how extreme the emotion is
+  const arousalFactor = arousal; // 0-1: how activated the emotion is
+  const entropyFactor = entropy; // 0-1: how chaotic/unpredictable
+  const dominanceFactor = dominance * 0.3; // 0-0.3: control/agency influence
+  
+  // Weighted combination that makes psychological sense
+  const emotionalComplexity = (
+    valenceIntensity * 0.3 +     // Extreme emotions create complexity
+    arousalFactor * 0.4 +        // High arousal drives paradox tension
+    entropyFactor * 0.2 +        // Chaos amplifies paradox
+    dominanceFactor              // Agency/control moderates complexity
+  );
+  
+  // Ensure result is always valid
+  const result = Math.max(0, Math.min(1, emotionalComplexity));
+  
+  console.log('🎭 Emotional delta:', {
+    input: { valence, arousal, dominance, entropy },
+    factors: { valenceIntensity, arousalFactor, entropyFactor, dominanceFactor },
+    complexity: result
   });
   
-  // Calculate emotional intensity and instability with safe values
-  const intensity = Math.abs(safeValence) + safeArousal + safeDominance;
-  const instability = safeEntropy;
-  
-  // Ensure no division by zero or invalid operations
-  const rawResult = (intensity / 3 + instability) / 2;
-  const result = Math.min(1, Math.max(0, rawResult));
-  
-  // Final safety check with logging
-  const finalResult = (typeof result === 'number' && isFinite(result) && !isNaN(result)) ? result : 0.5;
-  
-  console.log('🔧 Emotional delta result:', { intensity, instability, rawResult, result, finalResult });
-  
-  return finalResult;
+  return result;
 }
 
 // TSVF Two-State Gate with Memory Enhancement

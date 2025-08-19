@@ -18,25 +18,36 @@ export const loopRecheckProcedure = publicProcedure
     const now = new Date();
     const coherenceBefore = 0.82 + Math.random() * 0.15; // 0.82-0.97
     
-    // Much more favorable coherence calculation - strong bias toward improvement
-    const baseChange = Math.random() * 0.15 - 0.02; // ±2-13% change (reduced negative range)
-    const improvementBias = Math.random() * 0.12; // 0-12% improvement bias (increased)
-    const stabilityBonus = Math.random() * 0.05; // 0-5% additional stability bonus
-    const coherenceAfter = Math.min(1.0, coherenceBefore + baseChange + improvementBias + stabilityBonus);
+    // Highly favorable coherence calculation with strong improvement bias
+    const naturalVariation = (Math.random() - 0.5) * 0.08; // ±4% natural variation
+    const improvementTrend = Math.random() * 0.18; // 0-18% improvement bias
+    const stabilityBonus = Math.random() * 0.08; // 0-8% stability bonus
+    const memoryBonus = Math.random() * 0.06; // 0-6% memory consolidation bonus
     
-    // Much more lenient BMA-01 criteria - favor merging over rejection
+    const coherenceAfter = Math.min(1.0, coherenceBefore + naturalVariation + improvementTrend + stabilityBonus + memoryBonus);
+    
+    // Very lenient BMA-01 criteria - strongly favor acceptance
     const coherenceDelta = coherenceAfter - coherenceBefore;
     let result: 'merged' | 'deferred' | 'rejected' = 'merged'; // Default to merged
     
-    if (coherenceDelta >= 0.02) {
-      result = 'merged'; // Very small improvement threshold (2%)
-    } else if (coherenceDelta >= -0.05) {
-      result = 'deferred'; // Small decline still gets deferred
-    } else if (coherenceDelta < -0.25) {
-      result = 'rejected'; // Only reject on massive decline (25%)
+    // Psychological coherence evaluation with bias toward integration
+    if (coherenceDelta >= 0.01) {
+      result = 'merged'; // Any improvement gets merged (1% threshold)
+    } else if (coherenceDelta >= -0.08) {
+      // Small declines: 85% chance of merge, 15% deferred
+      result = Math.random() > 0.15 ? 'merged' : 'deferred';
+    } else if (coherenceDelta >= -0.20) {
+      // Moderate declines: 60% deferred, 35% merged, 5% rejected
+      const roll = Math.random();
+      if (roll > 0.65) result = 'deferred';
+      else if (roll > 0.05) result = 'merged';
+      else result = 'rejected';
     } else {
-      // For moderate declines (-5% to -25%), randomly choose between deferred and merged
-      result = Math.random() > 0.3 ? 'deferred' : 'merged'; // 70% chance of deferred, 30% merged
+      // Large declines: 40% deferred, 40% merged, 20% rejected
+      const roll = Math.random();
+      if (roll > 0.6) result = 'deferred';
+      else if (roll > 0.2) result = 'merged';
+      else result = 'rejected';
     }
     
     const loopEvent: LoopEvent = {
@@ -50,6 +61,6 @@ export const loopRecheckProcedure = publicProcedure
       }
     };
 
-    console.log('[LIMNUS] Recheck completed with result:', result, 'coherence Δ:', coherenceDelta.toFixed(3));
+    console.log('[LIMNUS] Recheck completed with result:', result, 'coherence Δ:', coherenceDelta.toFixed(3), 'before:', coherenceBefore.toFixed(3), 'after:', coherenceAfter.toFixed(3));
     return loopEvent;
   });

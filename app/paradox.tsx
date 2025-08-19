@@ -138,9 +138,29 @@ const SliderControl: React.FC<{
   const handlePanGesture = (evt: any) => {
     const { locationX } = evt.nativeEvent;
     const sliderWidth = 280;
-    const percentage = Math.max(0, Math.min(1, locationX / sliderWidth));
-    const newValue = min + (max - min) * percentage;
-    const validValue = isNaN(newValue) || !isFinite(newValue) ? (min + max) / 2 : Number(newValue.toFixed(1));
+    
+    // Ensure locationX is a valid number
+    const safeLocationX = typeof locationX === 'number' && isFinite(locationX) ? locationX : 0;
+    
+    // Calculate percentage with bounds checking
+    const percentage = Math.max(0, Math.min(1, safeLocationX / sliderWidth));
+    
+    // Ensure min and max are valid numbers
+    const safeMin = typeof min === 'number' && isFinite(min) ? min : -1;
+    const safeMax = typeof max === 'number' && isFinite(max) ? max : 1;
+    
+    // Calculate new value with safety checks
+    const range = safeMax - safeMin;
+    const newValue = safeMin + range * percentage;
+    
+    // Final validation and fallback
+    let validValue: number;
+    if (isNaN(newValue) || !isFinite(newValue)) {
+      validValue = (safeMin + safeMax) / 2; // Use midpoint as fallback
+    } else {
+      validValue = Math.max(safeMin, Math.min(safeMax, Number(newValue.toFixed(1))));
+    }
+    
     onValueChange(validValue);
   };
 
@@ -155,7 +175,14 @@ const SliderControl: React.FC<{
           style={[
             styles.sliderFill,
             {
-              width: `${Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))}%`,
+              width: `${Math.max(0, Math.min(100, 
+                typeof value === 'number' && isFinite(value) && 
+                typeof min === 'number' && isFinite(min) && 
+                typeof max === 'number' && isFinite(max) && 
+                max !== min
+                  ? ((value - min) / (max - min)) * 100
+                  : 0
+              ))}%`,
             },
           ]}
         />
@@ -163,12 +190,21 @@ const SliderControl: React.FC<{
           style={[
             styles.sliderThumb,
             {
-              left: `${Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))}%`,
+              left: `${Math.max(0, Math.min(100, 
+                typeof value === 'number' && isFinite(value) && 
+                typeof min === 'number' && isFinite(min) && 
+                typeof max === 'number' && isFinite(max) && 
+                max !== min
+                  ? ((value - min) / (max - min)) * 100
+                  : 0
+              ))}%`,
             },
           ]}
         />
       </View>
-      <Text style={styles.sliderValue}>{isNaN(value) || !isFinite(value) ? '0.0' : value.toFixed(1)}</Text>
+      <Text style={styles.sliderValue}>
+        {typeof value === 'number' && isFinite(value) ? value.toFixed(1) : '0.0'}
+      </Text>
     </View>
   );
 };

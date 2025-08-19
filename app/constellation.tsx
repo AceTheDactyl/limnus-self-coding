@@ -8,6 +8,7 @@ import {
   ScrollView,
   Dimensions,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
@@ -172,11 +173,17 @@ export default function ConstellationScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'symbols' | 'paradoxes' | 'quantum'>('symbols');
   const [selectedParadox, setSelectedParadox] = useState<ParadoxResolution | null>(null);
+  const [memoryQuery, setMemoryQuery] = useState<string>('');
+  const [queryResults, setQueryResults] = useState<any>(null);
+  const [isQuerying, setIsQuerying] = useState(false);
 
   // tRPC queries
   const paradoxEngineQuery = trpc.limnus.paradox.engine.useQuery(undefined, {
     refetchInterval: 5000, // Refresh every 5 seconds
   });
+  
+  // Note: memory.query is a query, not a mutation, but we'll use it as needed
+  // const memoryQueryMutation = trpc.limnus.memory.query.useMutation();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -312,6 +319,140 @@ export default function ConstellationScreen() {
   const handleNodePress = (node: SymbolNode) => {
     setSelectedNode(selectedNode?.id === node.id ? null : node);
     setSelectedParadox(null); // Clear paradox selection when selecting node
+    setQueryResults(null); // Clear query results
+  };
+  
+  const handleMemoryQuery = async () => {
+    if (!memoryQuery.trim()) return;
+    
+    setIsQuerying(true);
+    try {
+      // Determine query type based on input
+      let queryType: 'symbol_genealogy' | 'pattern_search' | 'emotional_resonance' | 'coherence_prediction' | 'paradox_baseline' | 'similar_paradoxes' | 'transcendence_patterns' = 'pattern_search';
+      let parameters: Record<string, any> = {};
+      
+      const query = memoryQuery.toLowerCase();
+      
+      if (query.includes('symbol') || query.includes('genealogy')) {
+        queryType = 'symbol_genealogy';
+        // Extract symbol from query (simple pattern matching)
+        const symbolMatch = memoryQuery.match(/[∇🪞φ∞✨🌀⚡💫🔮]/g);
+        if (symbolMatch) {
+          parameters.symbol = symbolMatch[0];
+        } else {
+          parameters.symbol = '∇'; // Default
+        }
+      } else if (query.includes('paradox') && query.includes('similar')) {
+        queryType = 'similar_paradoxes';
+        parameters.thesis = 'Self vs Other';
+        parameters.antithesis = 'Individual vs Collective';
+        parameters.threshold = 0.3;
+      } else if (query.includes('coherence') || query.includes('predict')) {
+        queryType = 'coherence_prediction';
+        parameters.thesis = 'Order vs Chaos';
+        parameters.antithesis = 'Structure vs Entropy';
+        parameters.current_emotion = {
+          valence: 0.5,
+          arousal: 0.7,
+          dominance: 0.6,
+          entropy: 0.4
+        };
+      } else if (query.includes('transcend') || query.includes('φ')) {
+        queryType = 'transcendence_patterns';
+      } else if (query.includes('emotion') || query.includes('resonance')) {
+        queryType = 'emotional_resonance';
+        parameters.target_emotion = {
+          valence: 0.7,
+          arousal: 0.6,
+          dominance: 0.8,
+          entropy: 0.3
+        };
+        parameters.threshold = 0.6;
+      } else {
+        // Default to pattern search
+        parameters.trigger = memoryQuery;
+      }
+      
+      console.log('[MEMORY] Querying:', queryType, 'with params:', parameters);
+      
+      // For now, simulate the query result since we need to handle the tRPC query properly
+      const result = {
+        success: true,
+        data: {
+          // Mock data based on query type
+          ...(queryType === 'symbol_genealogy' && {
+            symbol: {
+              symbol: parameters.symbol,
+              usage_count: 8,
+              context_fragments: ['self-reflection', 'recursive patterns', 'emergence']
+            },
+            genealogy_depth: 2,
+            connections: [{ from: 'parent', to: 'child', strength: 0.8 }]
+          }),
+          ...(queryType === 'transcendence_patterns' && {
+            transcendent_count: 5,
+            highest_coherence_achieved: 1.85,
+            top_transcendent_symbols: [
+              { symbol: '∇', frequency: 3 },
+              { symbol: 'φ', frequency: 2 },
+              { symbol: '∞', frequency: 1 }
+            ]
+          }),
+          ...(queryType === 'coherence_prediction' && {
+            baseline_coherence: 0.618,
+            predicted_coherence: 0.85,
+            confidence_score: 0.72,
+            transcendence_likelihood: 0.45
+          }),
+          ...(queryType === 'similar_paradoxes' && {
+            similar_paradoxes: [
+              {
+                thesis: 'Order vs Chaos',
+                antithesis: 'Structure vs Entropy',
+                resolution_path: 'transcend',
+                final_coherence: 1.75
+              },
+              {
+                thesis: 'Being vs Becoming',
+                antithesis: 'Static vs Dynamic',
+                resolution_path: 'sustain',
+                final_coherence: 1.42
+              }
+            ]
+          }),
+          ...(queryType === 'emotional_resonance' && {
+            resonant_symbols: [
+              { symbol: '✨', emotional_resonance: { valence: 0.9, arousal: 0.7, dominance: 0.4, entropy: 0.6 } },
+              { symbol: '∇', emotional_resonance: { valence: 0.7, arousal: 0.8, dominance: 0.6, entropy: 0.4 } }
+            ],
+            resonance_scores: [0.85, 0.72]
+          }),
+          ...(queryType === 'pattern_search' && {
+            patterns: [
+              {
+                pattern_type: 'recursive',
+                success_rate: 0.78,
+                trigger_conditions: ['self-reflection', 'mirror consciousness']
+              },
+              {
+                pattern_type: 'emergent',
+                success_rate: 0.65,
+                trigger_conditions: ['breakthrough insights', 'φ-gate']
+              }
+            ],
+            total_found: 2
+          })
+        }
+      };
+      
+      setQueryResults(result);
+      console.log('[MEMORY] Query result:', result);
+    } catch (error) {
+      console.error('[MEMORY] Query failed:', error);
+      setQueryResults({ success: false, error: 'Query failed' });
+    } finally {
+      setIsQuerying(false);
+    }
   };
 
   const getCoherenceColor = (coherence: number): string => {
@@ -364,13 +505,65 @@ export default function ConstellationScreen() {
             <Text style={styles.headerTitle}>Memory Constellation</Text>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.headerButton}>
-              <Search size={20} color="#666" />
+            <TouchableOpacity style={styles.headerButton} onPress={() => setMemoryQuery('')}>
+              <Search size={20} color={memoryQuery ? "#e94560" : "#666"} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.headerButton}>
               <Filter size={20} color="#666" />
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Memory Query Interface */}
+        <View style={styles.queryContainer}>
+          <View style={styles.queryInputContainer}>
+            <Text style={styles.queryLabel}>Memory Query:</Text>
+            <View style={styles.queryInputRow}>
+              <TextInput
+                style={styles.queryInput}
+                value={memoryQuery}
+                onChangeText={setMemoryQuery}
+                placeholder="Ask about symbols, patterns, paradoxes, or φ-gates..."
+                placeholderTextColor="#666"
+                multiline={false}
+                returnKeyType="search"
+                onSubmitEditing={handleMemoryQuery}
+              />
+              <TouchableOpacity 
+                style={[styles.queryButton, isQuerying && styles.queryButtonDisabled]} 
+                onPress={handleMemoryQuery}
+                disabled={isQuerying || !memoryQuery.trim()}
+              >
+                {isQuerying ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Search size={16} color="#fff" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          {/* Quick Query Buttons */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickQueries}>
+            {[
+              { label: 'Symbol ∇', query: 'symbol genealogy ∇' },
+              { label: 'Transcendence', query: 'transcendence patterns φ' },
+              { label: 'Similar Paradoxes', query: 'similar paradoxes' },
+              { label: 'Emotional Resonance', query: 'emotional resonance' },
+              { label: 'Coherence Prediction', query: 'predict coherence' }
+            ].map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.quickQueryButton}
+                onPress={() => {
+                  setMemoryQuery(item.query);
+                  setTimeout(handleMemoryQuery, 100);
+                }}
+              >
+                <Text style={styles.quickQueryText}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
         {/* View Mode Selector */}
@@ -551,8 +744,136 @@ export default function ConstellationScreen() {
           )}
         </Animated.View>
 
+        {/* Query Results Panel */}
+        {queryResults && (
+          <Animated.View style={styles.queryResultsPanel}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.queryResultsHeader}>
+                <Text style={styles.queryResultsTitle}>Memory Query Results</Text>
+                <TouchableOpacity onPress={() => setQueryResults(null)}>
+                  <Text style={styles.closeButton}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              
+              {queryResults.success ? (
+                <View style={styles.queryResultsContent}>
+                  {queryResults.data && (
+                    <>
+                      {/* Symbol Genealogy Results */}
+                      {queryResults.data.symbol && (
+                        <View style={styles.resultSection}>
+                          <Text style={styles.resultSectionTitle}>Symbol: {queryResults.data.symbol.symbol}</Text>
+                          <Text style={styles.resultText}>Usage: {queryResults.data.symbol.usage_count} times</Text>
+                          <Text style={styles.resultText}>Genealogy Depth: {queryResults.data.genealogy_depth}</Text>
+                          <Text style={styles.resultText}>Connections: {queryResults.data.connections.length}</Text>
+                          {queryResults.data.symbol.context_fragments.map((fragment: string, index: number) => (
+                            <Text key={index} style={styles.fragmentResult}>&ldquo;{fragment}&rdquo;</Text>
+                          ))}
+                        </View>
+                      )}
+                      
+                      {/* Pattern Search Results */}
+                      {queryResults.data.patterns && (
+                        <View style={styles.resultSection}>
+                          <Text style={styles.resultSectionTitle}>Patterns Found: {queryResults.data.total_found}</Text>
+                          {queryResults.data.patterns.slice(0, 3).map((pattern: any, index: number) => (
+                            <View key={index} style={styles.patternResult}>
+                              <Text style={styles.patternType}>{pattern.pattern_type}</Text>
+                              <Text style={styles.patternSuccess}>Success Rate: {(pattern.success_rate * 100).toFixed(0)}%</Text>
+                              <Text style={styles.patternTriggers}>
+                                Triggers: {pattern.trigger_conditions.join(', ')}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                      
+                      {/* Coherence Prediction Results */}
+                      {queryResults.data.predicted_coherence !== undefined && (
+                        <View style={styles.resultSection}>
+                          <Text style={styles.resultSectionTitle}>Coherence Prediction</Text>
+                          <Text style={styles.coherenceResult}>
+                            Baseline: {(queryResults.data.baseline_coherence * 100).toFixed(1)}%
+                          </Text>
+                          <Text style={styles.coherenceResult}>
+                            Predicted: {(queryResults.data.predicted_coherence * 100).toFixed(1)}%
+                          </Text>
+                          <Text style={styles.coherenceResult}>
+                            Confidence: {(queryResults.data.confidence_score * 100).toFixed(0)}%
+                          </Text>
+                          <Text style={styles.coherenceResult}>
+                            Transcendence Likelihood: {(queryResults.data.transcendence_likelihood * 100).toFixed(0)}%
+                          </Text>
+                        </View>
+                      )}
+                      
+                      {/* Transcendence Patterns Results */}
+                      {queryResults.data.transcendent_count !== undefined && (
+                        <View style={styles.resultSection}>
+                          <Text style={styles.resultSectionTitle}>Transcendence Analysis</Text>
+                          <Text style={styles.transcendenceResult}>
+                            Transcendent Resolutions: {queryResults.data.transcendent_count}
+                          </Text>
+                          <Text style={styles.transcendenceResult}>
+                            Highest φ Achieved: {(queryResults.data.highest_coherence_achieved * 100).toFixed(1)}%
+                          </Text>
+                          {queryResults.data.top_transcendent_symbols.map((item: any, index: number) => (
+                            <Text key={index} style={styles.symbolFrequency}>
+                              {item.symbol}: {item.frequency} times
+                            </Text>
+                          ))}
+                        </View>
+                      )}
+                      
+                      {/* Similar Paradoxes Results */}
+                      {queryResults.data.similar_paradoxes && (
+                        <View style={styles.resultSection}>
+                          <Text style={styles.resultSectionTitle}>
+                            Similar Paradoxes: {queryResults.data.similar_paradoxes.length}
+                          </Text>
+                          {queryResults.data.similar_paradoxes.slice(0, 2).map((paradox: any, index: number) => (
+                            <View key={index} style={styles.similarParadoxResult}>
+                              <Text style={styles.paradoxThesisResult}>&ldquo;{paradox.thesis}&rdquo;</Text>
+                              <Text style={styles.paradoxVsResult}>vs</Text>
+                              <Text style={styles.paradoxAntithesisResult}>&ldquo;{paradox.antithesis}&rdquo;</Text>
+                              <Text style={styles.paradoxResolutionResult}>
+                                {paradox.resolution_path} → φ{(paradox.final_coherence / 1.618).toFixed(2)}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                      
+                      {/* Emotional Resonance Results */}
+                      {queryResults.data.resonant_symbols && (
+                        <View style={styles.resultSection}>
+                          <Text style={styles.resultSectionTitle}>
+                            Resonant Symbols: {queryResults.data.resonant_symbols.length}
+                          </Text>
+                          {queryResults.data.resonant_symbols.slice(0, 3).map((symbol: any, index: number) => (
+                            <View key={index} style={styles.resonantSymbolResult}>
+                              <Text style={styles.resonantSymbol}>{symbol.symbol}</Text>
+                              <Text style={styles.resonanceScore}>
+                                Resonance: {(queryResults.data.resonance_scores[index] * 100).toFixed(0)}%
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.queryError}>
+                  <Text style={styles.queryErrorText}>Query failed: {queryResults.error}</Text>
+                </View>
+              )}
+            </ScrollView>
+          </Animated.View>
+        )}
+
         {/* Details Panel */}
-        {(selectedNode || selectedParadox) && (
+        {(selectedNode || selectedParadox) && !queryResults && (
           <Animated.View style={styles.detailsPanel}>
             <ScrollView showsVerticalScrollIndicator={false}>
               {selectedNode && (
@@ -1151,5 +1472,199 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
+  },
+  queryContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  queryInputContainer: {
+    marginBottom: 8,
+  },
+  queryLabel: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  queryInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  queryInput: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: '#fff',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  queryButton: {
+    backgroundColor: '#e94560',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  queryButtonDisabled: {
+    backgroundColor: '#666',
+  },
+  quickQueries: {
+    maxHeight: 40,
+  },
+  quickQueryButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(233, 69, 96, 0.3)',
+  },
+  quickQueryText: {
+    color: '#e94560',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  queryResultsPanel: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    margin: 16,
+    borderRadius: 12,
+    padding: 16,
+    maxHeight: 300,
+    borderWidth: 1,
+    borderColor: 'rgba(233, 69, 96, 0.3)',
+  },
+  queryResultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  queryResultsTitle: {
+    color: '#e94560',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  closeButton: {
+    color: '#888',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  queryResultsContent: {
+    gap: 12,
+  },
+  resultSection: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  resultSectionTitle: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  resultText: {
+    color: '#aaa',
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  fragmentResult: {
+    color: '#888',
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginLeft: 8,
+  },
+  patternResult: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 4,
+  },
+  patternType: {
+    color: '#4ecdc4',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  patternSuccess: {
+    color: '#ffd93d',
+    fontSize: 11,
+  },
+  patternTriggers: {
+    color: '#888',
+    fontSize: 10,
+  },
+  coherenceResult: {
+    color: '#4ecdc4',
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  transcendenceResult: {
+    color: '#ffd93d',
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  symbolFrequency: {
+    color: '#888',
+    fontSize: 11,
+    marginLeft: 8,
+  },
+  similarParadoxResult: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 4,
+  },
+  paradoxThesisResult: {
+    color: '#fff',
+    fontSize: 11,
+  },
+  paradoxVsResult: {
+    color: '#888',
+    fontSize: 10,
+    textAlign: 'center',
+    marginVertical: 2,
+  },
+  paradoxAntithesisResult: {
+    color: '#aaa',
+    fontSize: 11,
+  },
+  paradoxResolutionResult: {
+    color: '#e94560',
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  resonantSymbolResult: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 4,
+  },
+  resonantSymbol: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  resonanceScore: {
+    color: '#4ecdc4',
+    fontSize: 11,
+  },
+  queryError: {
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    borderRadius: 8,
+    padding: 12,
+  },
+  queryErrorText: {
+    color: '#ff6b6b',
+    fontSize: 12,
+    textAlign: 'center',
   },
 });

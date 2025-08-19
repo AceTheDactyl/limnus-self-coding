@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Zap, Circle } from 'lucide-react-native';
-import { Stack } from 'expo-router';
+import { Zap, Circle, ArrowLeft } from 'lucide-react-native';
+import { Stack, router } from 'expo-router';
 import { trpc } from '@/lib/trpc';
 import type { EmotionalVector } from '@/types/limnus';
 
@@ -310,7 +310,35 @@ export default function ParadoxScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen 
+        options={{ 
+          headerShown: true,
+          title: 'Paradox Engine',
+          headerStyle: {
+            backgroundColor: '#1a0a2a',
+          },
+          headerTintColor: '#7ab8a8',
+          headerTitleStyle: {
+            color: '#8b7ab8',
+            fontSize: 18,
+            fontWeight: '300',
+          },
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+              }}
+            >
+              <ArrowLeft size={20} color="#7ab8a8" />
+              <Text style={{ color: '#7ab8a8', marginLeft: 8, fontSize: 16 }}>Back</Text>
+            </TouchableOpacity>
+          ),
+        }} 
+      />
       <LinearGradient
         colors={['#0a0a0a', '#1a0a2a', '#0a0a0a']}
         style={styles.gradient}

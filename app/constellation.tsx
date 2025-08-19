@@ -23,7 +23,13 @@ import {
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { trpc } from '@/lib/trpc';
-import type { ConstellationMap, SymbolNode, EmotionalVector } from '@/types/limnus';
+import type { 
+  ConstellationMap, 
+  SymbolNode, 
+  EmotionalVector, 
+  ParadoxEngine,
+  ParadoxResolution 
+} from '@/types/limnus';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -162,17 +168,29 @@ const ConnectionLine: React.FC<ConnectionLineProps> = ({ from, to, strength, typ
 export default function ConstellationScreen() {
   const [selectedNode, setSelectedNode] = useState<SymbolNode | null>(null);
   const [constellation, setConstellation] = useState<ConstellationMap | null>(null);
+  const [paradoxEngine, setParadoxEngine] = useState<ParadoxEngine | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'full' | 'emotional' | 'genealogy'>('full');
+  const [viewMode, setViewMode] = useState<'symbols' | 'paradoxes' | 'quantum'>('symbols');
+  const [selectedParadox, setSelectedParadox] = useState<ParadoxResolution | null>(null);
+
+  // tRPC queries
+  const paradoxEngineQuery = trpc.limnus.paradox.engine.useQuery(undefined, {
+    refetchInterval: 5000, // Refresh every 5 seconds
+  });
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Mock data for demonstration - in real app, this would come from memory consolidation
+  // Load constellation and paradox engine data
   useEffect(() => {
     const loadConstellation = async () => {
       try {
-        // Simulate loading constellation data
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Load paradox engine state
+        if (paradoxEngineQuery.data) {
+          setParadoxEngine(paradoxEngineQuery.data.engine);
+        }
+        
+        // Simulate loading constellation data (in real app, this would come from memory API)
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         const mockConstellation: ConstellationMap = {
           nodes: [
@@ -270,7 +288,7 @@ export default function ConstellationScreen() {
     };
 
     loadConstellation();
-  }, [fadeAnim]);
+  }, [fadeAnim, paradoxEngineQuery.data]);
 
   const generateNodePositions = (nodes: SymbolNode[]) => {
     const positions: Record<string, { x: number; y: number }> = {};
@@ -293,6 +311,14 @@ export default function ConstellationScreen() {
 
   const handleNodePress = (node: SymbolNode) => {
     setSelectedNode(selectedNode?.id === node.id ? null : node);
+    setSelectedParadox(null); // Clear paradox selection when selecting node
+  };
+
+  const getCoherenceColor = (coherence: number): string => {
+    if (coherence > 0.8) return '#4ecdc4'; // High coherence - cyan
+    if (coherence > 0.618) return '#ffd93d'; // φ-gate threshold - gold
+    if (coherence > 0.4) return '#ff6b6b'; // Medium coherence - red
+    return '#a8e6cf'; // Low coherence - muted green
   };
 
   if (isLoading) {
@@ -349,7 +375,7 @@ export default function ConstellationScreen() {
 
         {/* View Mode Selector */}
         <View style={styles.viewModeContainer}>
-          {(['full', 'emotional', 'genealogy'] as const).map((mode) => (
+          {(['symbols', 'paradoxes', 'quantum'] as const).map((mode) => (
             <TouchableOpacity
               key={mode}
               style={[styles.viewModeButton, viewMode === mode && styles.viewModeButtonActive]}
@@ -362,132 +388,333 @@ export default function ConstellationScreen() {
           ))}
         </View>
 
+        {/* Paradox Engine Status */}
+        {paradoxEngine && (
+          <View style={styles.engineStatusContainer}>
+            <View style={styles.engineStatus}>
+              <View style={styles.statusItem}>
+                <Text style={styles.statusLabel}>Quantum Coherence</Text>
+                <Text style={[styles.statusValue, { color: getCoherenceColor(paradoxEngine.quantum_coherence) }]}>
+                  {(paradoxEngine.quantum_coherence * 100).toFixed(1)}%
+                </Text>
+              </View>
+              <View style={styles.statusItem}>
+                <Text style={styles.statusLabel}>Active Paradoxes</Text>
+                <Text style={styles.statusValue}>{paradoxEngine.active_paradoxes.length}</Text>
+              </View>
+              <View style={styles.statusItem}>
+                <Text style={styles.statusLabel}>Synthesis Genealogy</Text>
+                <Text style={styles.statusValue}>{paradoxEngine.synthesis_genealogy.length}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Constellation Visualization */}
         <Animated.View style={[styles.constellationContainer, { opacity: fadeAnim }]}>
-          <View style={styles.constellationCanvas}>
-            {/* Render connections first (behind nodes) */}
-            {constellation.connections.map((connection, index) => {
-              const fromPos = nodePositions[connection.from];
-              const toPos = nodePositions[connection.to];
-              
-              if (!fromPos || !toPos) return null;
-              
-              return (
-                <ConnectionLine
-                  key={`connection-${index}`}
-                  from={fromPos}
-                  to={toPos}
-                  strength={connection.strength}
-                  type={connection.relationship_type}
-                />
-              );
-            })}
+          {viewMode === 'symbols' && (
+            <View style={styles.constellationCanvas}>
+              {/* Render connections first (behind nodes) */}
+              {constellation.connections.map((connection, index) => {
+                const fromPos = nodePositions[connection.from];
+                const toPos = nodePositions[connection.to];
+                
+                if (!fromPos || !toPos) return null;
+                
+                return (
+                  <ConnectionLine
+                    key={`connection-${index}`}
+                    from={fromPos}
+                    to={toPos}
+                    strength={connection.strength}
+                    type={connection.relationship_type}
+                  />
+                );
+              })}
 
-            {/* Render nodes */}
-            {constellation.nodes.map((node) => {
-              const position = nodePositions[node.id];
-              if (!position) return null;
+              {/* Render nodes */}
+              {constellation.nodes.map((node) => {
+                const position = nodePositions[node.id];
+                if (!position) return null;
 
-              return (
-                <ConstellationNode
-                  key={node.id}
-                  node={node}
-                  position={position}
-                  onPress={handleNodePress}
-                  isSelected={selectedNode?.id === node.id}
-                />
-              );
-            })}
-          </View>
+                return (
+                  <ConstellationNode
+                    key={node.id}
+                    node={node}
+                    position={position}
+                    onPress={handleNodePress}
+                    isSelected={selectedNode?.id === node.id}
+                  />
+                );
+              })}
+            </View>
+          )}
+
+          {viewMode === 'paradoxes' && paradoxEngine && (
+            <ScrollView style={styles.paradoxList} showsVerticalScrollIndicator={false}>
+              {paradoxEngine.active_paradoxes.map((paradox) => (
+                <TouchableOpacity
+                  key={paradox.paradox_id}
+                  style={[
+                    styles.paradoxCard,
+                    selectedParadox?.paradox_id === paradox.paradox_id && styles.paradoxCardSelected
+                  ]}
+                  onPress={() => setSelectedParadox(
+                    selectedParadox?.paradox_id === paradox.paradox_id ? null : paradox
+                  )}
+                >
+                  <View style={styles.paradoxHeader}>
+                    <Text style={styles.paradoxState}>{paradox.current_state.toUpperCase()}</Text>
+                    <Text style={styles.paradoxTension}>{paradox.tension_score.toFixed(0)}% tension</Text>
+                  </View>
+                  <Text style={styles.paradoxThesis} numberOfLines={2}>
+                    &ldquo;{paradox.thesis}&rdquo;
+                  </Text>
+                  <Text style={styles.paradoxVs}>vs</Text>
+                  <Text style={styles.paradoxAntithesis} numberOfLines={2}>
+                    &ldquo;{paradox.antithesis}&rdquo;
+                  </Text>
+                  {paradox.synthesis && (
+                    <View style={styles.synthesisPreview}>
+                      <Text style={styles.synthesisLabel}>Synthesis:</Text>
+                      <Text style={styles.synthesisText} numberOfLines={3}>
+                        {paradox.synthesis.statement}
+                      </Text>
+                      <View style={styles.synthesisOverlay}>
+                        {paradox.synthesis.overlay.map((symbol, index) => (
+                          <Text key={index} style={styles.overlaySymbol}>{symbol}</Text>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                  <Text style={styles.paradoxAttempts}>
+                    {paradox.resolution_attempts.length} resolution attempts
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
+          {viewMode === 'quantum' && paradoxEngine && (
+            <View style={styles.quantumView}>
+              <View style={styles.quantumMetrics}>
+                <View style={styles.quantumGauge}>
+                  <Text style={styles.quantumLabel}>Quantum Coherence</Text>
+                  <View style={styles.gaugeContainer}>
+                    <View 
+                      style={[
+                        styles.gaugeBar, 
+                        { width: `${paradoxEngine.quantum_coherence * 100}%` }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.quantumValue}>
+                    {(paradoxEngine.quantum_coherence * 100).toFixed(2)}%
+                  </Text>
+                </View>
+                
+                <View style={styles.quantumStats}>
+                  <View style={styles.quantumStat}>
+                    <Text style={styles.quantumStatLabel}>Transcended</Text>
+                    <Text style={styles.quantumStatValue}>
+                      {paradoxEngine.active_paradoxes.filter(p => p.current_state === 'transcended').length}
+                    </Text>
+                  </View>
+                  <View style={styles.quantumStat}>
+                    <Text style={styles.quantumStatLabel}>Synthesized</Text>
+                    <Text style={styles.quantumStatValue}>
+                      {paradoxEngine.active_paradoxes.filter(p => p.current_state === 'synthesized').length}
+                    </Text>
+                  </View>
+                  <View style={styles.quantumStat}>
+                    <Text style={styles.quantumStatLabel}>Resolving</Text>
+                    <Text style={styles.quantumStatValue}>
+                      {paradoxEngine.active_paradoxes.filter(p => p.current_state === 'resolving').length}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              
+              <ScrollView style={styles.genealogyList}>
+                <Text style={styles.genealogyTitle}>Synthesis Genealogy</Text>
+                {paradoxEngine.synthesis_genealogy.map((entry, index) => (
+                  <View key={index} style={styles.genealogyEntry}>
+                    <Text style={styles.genealogyParent}>{entry.parent_synthesis}</Text>
+                    <Text style={styles.genealogyType}>{entry.mutation_type}</Text>
+                    <Text style={styles.genealogyChildren}>
+                      {entry.child_syntheses.length} children
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </Animated.View>
 
-        {/* Node Details Panel */}
-        {selectedNode && (
+        {/* Details Panel */}
+        {(selectedNode || selectedParadox) && (
           <Animated.View style={styles.detailsPanel}>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.detailsHeader}>
-                <Text style={styles.detailsSymbol}>{selectedNode.symbol}</Text>
-                <View style={styles.detailsStats}>
-                  <View style={styles.statItem}>
-                    <Sparkles size={16} color="#e94560" />
-                    <Text style={styles.statText}>{selectedNode.usage_count} uses</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Network size={16} color="#4ecdc4" />
-                    <Text style={styles.statText}>
-                      {selectedNode.coherence_contributions.length} sessions
-                    </Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Zap size={16} color="#ffd93d" />
-                    <Text style={styles.statText}>
-                      {selectedNode.coherence_contributions.length > 0
-                        ? (selectedNode.coherence_contributions.reduce((a, b) => a + b, 0) / 
-                           selectedNode.coherence_contributions.length * 100).toFixed(1)
-                        : '0'}% avg coherence
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.detailsSection}>
-                <Text style={styles.sectionTitle}>Emotional Resonance</Text>
-                <View style={styles.emotionGrid}>
-                  <View style={styles.emotionItem}>
-                    <Text style={styles.emotionLabel}>Valence</Text>
-                    <Text style={styles.emotionValue}>
-                      {(selectedNode.emotional_resonance.valence * 100).toFixed(0)}%
-                    </Text>
-                  </View>
-                  <View style={styles.emotionItem}>
-                    <Text style={styles.emotionLabel}>Arousal</Text>
-                    <Text style={styles.emotionValue}>
-                      {(selectedNode.emotional_resonance.arousal * 100).toFixed(0)}%
-                    </Text>
-                  </View>
-                  <View style={styles.emotionItem}>
-                    <Text style={styles.emotionLabel}>Dominance</Text>
-                    <Text style={styles.emotionValue}>
-                      {(selectedNode.emotional_resonance.dominance * 100).toFixed(0)}%
-                    </Text>
-                  </View>
-                  <View style={styles.emotionItem}>
-                    <Text style={styles.emotionLabel}>Entropy</Text>
-                    <Text style={styles.emotionValue}>
-                      {(selectedNode.emotional_resonance.entropy * 100).toFixed(0)}%
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {selectedNode.context_fragments.length > 0 && (
-                <View style={styles.detailsSection}>
-                  <Text style={styles.sectionTitle}>Context Fragments</Text>
-                  {selectedNode.context_fragments.map((fragment, index) => (
-                    <View key={index} style={styles.fragmentItem}>
-                      <Text style={styles.fragmentText}>&ldquo;{fragment}&rdquo;</Text>
+              {selectedNode && (
+                <>
+                  <View style={styles.detailsHeader}>
+                    <Text style={styles.detailsSymbol}>{selectedNode.symbol}</Text>
+                    <View style={styles.detailsStats}>
+                      <View style={styles.statItem}>
+                        <Sparkles size={16} color="#e94560" />
+                        <Text style={styles.statText}>{selectedNode.usage_count} uses</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Network size={16} color="#4ecdc4" />
+                        <Text style={styles.statText}>
+                          {selectedNode.coherence_contributions.length} sessions
+                        </Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Zap size={16} color="#ffd93d" />
+                        <Text style={styles.statText}>
+                          {selectedNode.coherence_contributions.length > 0
+                            ? (selectedNode.coherence_contributions.reduce((a, b) => a + b, 0) / 
+                               selectedNode.coherence_contributions.length * 100).toFixed(1)
+                            : '0'}% avg coherence
+                        </Text>
+                      </View>
                     </View>
-                  ))}
-                </View>
+                  </View>
+
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.sectionTitle}>Emotional Resonance</Text>
+                    <View style={styles.emotionGrid}>
+                      <View style={styles.emotionItem}>
+                        <Text style={styles.emotionLabel}>Valence</Text>
+                        <Text style={styles.emotionValue}>
+                          {(selectedNode.emotional_resonance.valence * 100).toFixed(0)}%
+                        </Text>
+                      </View>
+                      <View style={styles.emotionItem}>
+                        <Text style={styles.emotionLabel}>Arousal</Text>
+                        <Text style={styles.emotionValue}>
+                          {(selectedNode.emotional_resonance.arousal * 100).toFixed(0)}%
+                        </Text>
+                      </View>
+                      <View style={styles.emotionItem}>
+                        <Text style={styles.emotionLabel}>Dominance</Text>
+                        <Text style={styles.emotionValue}>
+                          {(selectedNode.emotional_resonance.dominance * 100).toFixed(0)}%
+                        </Text>
+                      </View>
+                      <View style={styles.emotionItem}>
+                        <Text style={styles.emotionLabel}>Entropy</Text>
+                        <Text style={styles.emotionValue}>
+                          {(selectedNode.emotional_resonance.entropy * 100).toFixed(0)}%
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {selectedNode.context_fragments.length > 0 && (
+                    <View style={styles.detailsSection}>
+                      <Text style={styles.sectionTitle}>Context Fragments</Text>
+                      {selectedNode.context_fragments.map((fragment, index) => (
+                        <View key={index} style={styles.fragmentItem}>
+                          <Text style={styles.fragmentText}>&ldquo;{fragment}&rdquo;</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </>
+              )}
+
+              {selectedParadox && (
+                <>
+                  <View style={styles.detailsHeader}>
+                    <Text style={styles.detailsSymbol}>🌀</Text>
+                    <Text style={styles.paradoxDetailTitle}>{selectedParadox.paradox_id}</Text>
+                    <View style={styles.detailsStats}>
+                      <View style={styles.statItem}>
+                        <Zap size={16} color="#e94560" />
+                        <Text style={styles.statText}>{selectedParadox.tension_score.toFixed(0)}% tension</Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Network size={16} color="#4ecdc4" />
+                        <Text style={styles.statText}>
+                          {selectedParadox.resolution_attempts.length} attempts
+                        </Text>
+                      </View>
+                      <View style={styles.statItem}>
+                        <Sparkles size={16} color="#ffd93d" />
+                        <Text style={styles.statText}>{selectedParadox.current_state}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.sectionTitle}>Thesis</Text>
+                    <Text style={styles.paradoxDetailText}>{selectedParadox.thesis}</Text>
+                  </View>
+
+                  <View style={styles.detailsSection}>
+                    <Text style={styles.sectionTitle}>Antithesis</Text>
+                    <Text style={styles.paradoxDetailText}>{selectedParadox.antithesis}</Text>
+                  </View>
+
+                  {selectedParadox.synthesis && (
+                    <View style={styles.detailsSection}>
+                      <Text style={styles.sectionTitle}>Synthesis</Text>
+                      <Text style={styles.paradoxDetailText}>{selectedParadox.synthesis.statement}</Text>
+                      <View style={styles.synthesisMetrics}>
+                        <Text style={styles.metricsLabel}>φ-Gate: {(selectedParadox.synthesis.metrics.phiGate * 100).toFixed(1)}%</Text>
+                        <Text style={styles.metricsLabel}>Tension: {(selectedParadox.synthesis.metrics.tension * 100).toFixed(1)}%</Text>
+                        <Text style={styles.metricsLabel}>Path: {selectedParadox.synthesis.resolution_path}</Text>
+                      </View>
+                    </View>
+                  )}
+                </>
               )}
             </ScrollView>
           </Animated.View>
         )}
 
-        {/* Constellation Stats */}
+        {/* Stats */}
         <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Eye size={16} color="#e94560" />
-            <Text style={styles.statCardText}>{constellation.nodes.length} symbols</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Network size={16} color="#4ecdc4" />
-            <Text style={styles.statCardText}>{constellation.connections.length} connections</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Sparkles size={16} color="#ffd93d" />
-            <Text style={styles.statCardText}>{constellation.clusters.length} clusters</Text>
-          </View>
+          {viewMode === 'symbols' && (
+            <>
+              <View style={styles.statCard}>
+                <Eye size={16} color="#e94560" />
+                <Text style={styles.statCardText}>{constellation.nodes.length} symbols</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Network size={16} color="#4ecdc4" />
+                <Text style={styles.statCardText}>{constellation.connections.length} connections</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Sparkles size={16} color="#ffd93d" />
+                <Text style={styles.statCardText}>{constellation.clusters.length} clusters</Text>
+              </View>
+            </>
+          )}
+          {(viewMode === 'paradoxes' || viewMode === 'quantum') && paradoxEngine && (
+            <>
+              <View style={styles.statCard}>
+                <Zap size={16} color="#e94560" />
+                <Text style={styles.statCardText}>
+                  {paradoxEngine.active_paradoxes.filter(p => p.synthesis).length} resolved
+                </Text>
+              </View>
+              <View style={styles.statCard}>
+                <Network size={16} color="#4ecdc4" />
+                <Text style={styles.statCardText}>
+                  {(paradoxEngine.quantum_coherence * 100).toFixed(0)}% coherence
+                </Text>
+              </View>
+              <View style={styles.statCard}>
+                <Sparkles size={16} color="#ffd93d" />
+                <Text style={styles.statCardText}>
+                  {paradoxEngine.synthesis_genealogy.length} genealogy
+                </Text>
+              </View>
+            </>
+          )}
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -716,5 +943,213 @@ const styles = StyleSheet.create({
     color: '#aaa',
     fontSize: 12,
     fontWeight: '500',
+  },
+  engineStatusContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  engineStatus: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  statusItem: {
+    alignItems: 'center',
+  },
+  statusLabel: {
+    color: '#888',
+    fontSize: 10,
+    marginBottom: 4,
+  },
+  statusValue: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  paradoxList: {
+    flex: 1,
+    padding: 16,
+  },
+  paradoxCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  paradoxCardSelected: {
+    borderColor: '#e94560',
+    backgroundColor: 'rgba(233, 69, 96, 0.1)',
+  },
+  paradoxHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  paradoxState: {
+    color: '#4ecdc4',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  paradoxTension: {
+    color: '#ffd93d',
+    fontSize: 12,
+  },
+  paradoxThesis: {
+    color: '#fff',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  paradoxVs: {
+    color: '#888',
+    fontSize: 12,
+    textAlign: 'center',
+    marginVertical: 4,
+  },
+  paradoxAntithesis: {
+    color: '#aaa',
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  synthesisPreview: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+  },
+  synthesisLabel: {
+    color: '#e94560',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  synthesisText: {
+    color: '#ccc',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  synthesisOverlay: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  overlaySymbol: {
+    color: '#ffd93d',
+    fontSize: 14,
+  },
+  paradoxAttempts: {
+    color: '#888',
+    fontSize: 10,
+  },
+  quantumView: {
+    flex: 1,
+    padding: 16,
+  },
+  quantumMetrics: {
+    marginBottom: 24,
+  },
+  quantumGauge: {
+    marginBottom: 16,
+  },
+  quantumLabel: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  gaugeContainer: {
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  gaugeBar: {
+    height: '100%',
+    backgroundColor: '#4ecdc4',
+    borderRadius: 4,
+  },
+  quantumValue: {
+    color: '#4ecdc4',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  quantumStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  quantumStat: {
+    alignItems: 'center',
+  },
+  quantumStatLabel: {
+    color: '#888',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  quantumStatValue: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  genealogyList: {
+    flex: 1,
+  },
+  genealogyTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  genealogyEntry: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  genealogyParent: {
+    color: '#fff',
+    fontSize: 12,
+    flex: 1,
+  },
+  genealogyType: {
+    color: '#e94560',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  genealogyChildren: {
+    color: '#888',
+    fontSize: 10,
+  },
+  paradoxDetailTitle: {
+    color: '#fff',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  paradoxDetailText: {
+    color: '#ccc',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  synthesisMetrics: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  metricsLabel: {
+    color: '#888',
+    fontSize: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
 });

@@ -1,7 +1,23 @@
 import { z } from 'zod';
 import { publicProcedure } from '../../../create-context';
 import crypto from 'crypto';
-import type { ParadoxInput, ParadoxSynthesis, ParadoxMetrics, EmotionalVector } from '../../../../../types/limnus';
+import type { 
+  ParadoxInput, 
+  ParadoxSynthesis, 
+  ParadoxMetrics, 
+  EmotionalVector,
+  ParadoxResolution,
+  ResolutionAttempt,
+  ParadoxEngine
+} from '../../../../../types/limnus';
+
+// In-memory Paradox Resolution Engine state
+let paradoxEngine: ParadoxEngine = {
+  active_paradoxes: [],
+  resolution_patterns: [],
+  synthesis_genealogy: [],
+  quantum_coherence: 0.618 // Start with φ-1
+};
 
 // TSVF Constants
 const PHI = 1.618033988749895;
@@ -181,11 +197,86 @@ export function runParadox(input: ParadoxInput): ParadoxSynthesis {
     statement: finalStatement,
     metrics,
     contentHash,
+    timestamp: new Date().toISOString(),
+    resolution_path: 'sustain', // Default, will be overridden by engine
+    quantum_state: 'collapsed' // Default, will be overridden by engine
+  };
+}
+
+// Enhanced Paradox Resolution Engine
+function createParadoxResolution(
+  thesis: string, 
+  antithesis: string, 
+  sessionId?: string
+): ParadoxResolution {
+  const paradox_id = `paradox_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const tension_score = Math.min(100, (1 - hybridSimilarity(thesis, antithesis)) * 100 + antonymOpposition(thesis, antithesis) * 50);
+  
+  return {
+    paradox_id,
+    thesis,
+    antithesis,
+    tension_score,
+    resolution_attempts: [],
+    current_state: 'unresolved',
+    created_at: new Date().toISOString(),
+    last_modified: new Date().toISOString()
+  };
+}
+
+function createResolutionAttempt(
+  strategy: 'dialectical_merge' | 'recursive_loop' | 'transcendent_leap' | 'quantum_superposition',
+  synthesis: ParadoxSynthesis,
+  sessionId?: string
+): ResolutionAttempt {
+  return {
+    attempt_id: `attempt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    strategy,
+    input_context: { sessionId },
+    generated_synthesis: synthesis.statement,
+    coherence_score: synthesis.metrics.phiGate * 100,
+    emotional_resonance: {
+      valence: Math.tanh(synthesis.metrics.similarity - 0.5),
+      arousal: synthesis.metrics.tension,
+      dominance: synthesis.metrics.complexity,
+      entropy: synthesis.metrics.emotionalDelta
+    },
+    success: synthesis.metrics.phiGate > 0.618, // φ-gate threshold
+    failure_reason: synthesis.metrics.phiGate <= 0.618 ? 'Below φ-gate threshold' : undefined,
     timestamp: new Date().toISOString()
   };
 }
 
-// tRPC Procedure
+function updateQuantumCoherence(): void {
+  if (paradoxEngine.active_paradoxes.length === 0) {
+    paradoxEngine.quantum_coherence = 0.618;
+    return;
+  }
+  
+  const totalCoherence = paradoxEngine.active_paradoxes.reduce((sum, paradox) => {
+    if (paradox.synthesis) {
+      return sum + paradox.synthesis.metrics.phiGate;
+    }
+    const latestAttempt = paradox.resolution_attempts[paradox.resolution_attempts.length - 1];
+    return sum + (latestAttempt ? latestAttempt.coherence_score / 100 : 0);
+  }, 0);
+  
+  paradoxEngine.quantum_coherence = totalCoherence / paradoxEngine.active_paradoxes.length;
+}
+
+function determineResolutionPath(synthesis: ParadoxSynthesis): 'collapse' | 'transcend' | 'sustain' {
+  if (synthesis.metrics.phiGate > 0.8) return 'transcend';
+  if (synthesis.metrics.phiGate > 0.618) return 'sustain';
+  return 'collapse';
+}
+
+function determineQuantumState(strategy: string): 'superposition' | 'entangled' | 'collapsed' {
+  if (strategy === 'quantum_superposition') return 'superposition';
+  if (strategy === 'recursive_loop') return 'entangled';
+  return 'collapsed';
+}
+
+// Enhanced tRPC Procedures
 export const paradoxRunProcedure = publicProcedure
   .input(z.object({
     sessionId: z.string(),
@@ -205,28 +296,223 @@ export const paradoxRunProcedure = publicProcedure
     metadata: z.record(z.string(), z.unknown()).optional()
   }))
   .mutation(async ({ input, ctx }) => {
-    console.log('🌀 Paradox Engine: TSVF synthesis initiated', {
+    console.log('🌀 Paradox Resolution Engine: TSVF synthesis initiated', {
       sessionId: input.sessionId,
       T1: input.thesis.substring(0, 50) + '...',
       T2: input.post?.descriptor?.substring(0, 50) + '...' || input.antithesis.substring(0, 50) + '...',
       hasEmotion: !!input.emotion,
-      hasPostSelection: !!input.post
+      hasPostSelection: !!input.post,
+      activeParadoxes: paradoxEngine.active_paradoxes.length,
+      quantumCoherence: paradoxEngine.quantum_coherence.toFixed(3)
     });
     
     try {
+      // Generate synthesis using existing TSVF engine
       const synthesis = runParadox(input);
       
-      console.log('✨ Paradox synthesis complete', {
-        type: synthesis.type,
-        phiGate: synthesis.metrics.phiGate.toFixed(3),
-        twoStateSupport: synthesis.metrics.twoStateSupport?.toFixed(3),
-        overlay: synthesis.overlay.join(''),
-        hash: synthesis.contentHash.substring(0, 8)
+      // Enhanced synthesis with resolution metadata
+      const enhancedSynthesis: ParadoxSynthesis = {
+        ...synthesis,
+        resolution_path: determineResolutionPath(synthesis),
+        quantum_state: determineQuantumState('transcendent_leap') // Default strategy
+      };
+      
+      // Find or create paradox resolution
+      let paradox = paradoxEngine.active_paradoxes.find(
+        p => p.thesis === input.thesis && p.antithesis === input.antithesis
+      );
+      
+      if (!paradox) {
+        paradox = createParadoxResolution(input.thesis, input.antithesis, input.sessionId);
+        paradoxEngine.active_paradoxes.push(paradox);
+        console.log(`🆕 New paradox created: ${paradox.paradox_id}`);
+      }
+      
+      // Create resolution attempt
+      const attempt = createResolutionAttempt('transcendent_leap', enhancedSynthesis, input.sessionId);
+      paradox.resolution_attempts.push(attempt);
+      paradox.last_modified = new Date().toISOString();
+      
+      // Update paradox state based on synthesis quality
+      if (attempt.success) {
+        paradox.synthesis = enhancedSynthesis;
+        paradox.current_state = enhancedSynthesis.resolution_path === 'transcend' ? 'transcended' : 'synthesized';
+        
+        // Track synthesis genealogy
+        const genealogyEntry = {
+          parent_synthesis: paradox.paradox_id,
+          child_syntheses: [],
+          mutation_type: enhancedSynthesis.type === 'transcendent' ? 'transcendence' as const : 'evolution' as const
+        };
+        paradoxEngine.synthesis_genealogy.push(genealogyEntry);
+        
+        console.log(`✨ Paradox resolved: ${paradox.current_state} via ${enhancedSynthesis.resolution_path}`);
+      } else {
+        paradox.current_state = 'resolving';
+        console.log(`🔄 Paradox resolution attempt failed, continuing to resolve...`);
+      }
+      
+      // Update quantum coherence
+      updateQuantumCoherence();
+      
+      console.log('🌌 Paradox synthesis complete', {
+        paradoxId: paradox.paradox_id,
+        type: enhancedSynthesis.type,
+        phiGate: enhancedSynthesis.metrics.phiGate.toFixed(3),
+        twoStateSupport: enhancedSynthesis.metrics.twoStateSupport?.toFixed(3),
+        overlay: enhancedSynthesis.overlay.join(''),
+        resolutionPath: enhancedSynthesis.resolution_path,
+        quantumState: enhancedSynthesis.quantum_state,
+        systemCoherence: paradoxEngine.quantum_coherence.toFixed(3),
+        hash: enhancedSynthesis.contentHash.substring(0, 8)
       });
       
-      return synthesis;
+      return {
+        synthesis: enhancedSynthesis,
+        paradox_id: paradox.paradox_id,
+        resolution_state: paradox.current_state,
+        engine_stats: {
+          active_paradoxes: paradoxEngine.active_paradoxes.length,
+          quantum_coherence: paradoxEngine.quantum_coherence,
+          resolved_count: paradoxEngine.active_paradoxes.filter(p => p.synthesis).length,
+          transcended_count: paradoxEngine.active_paradoxes.filter(p => p.current_state === 'transcended').length
+        }
+      };
     } catch (error) {
       console.error('💥 Paradox synthesis failed:', error);
       throw new Error('Paradox synthesis failed: ' + (error as Error).message);
     }
+  });
+
+// Get Paradox Engine State
+export const getParadoxEngineProcedure = publicProcedure
+  .query(async () => {
+    const stats = {
+      total_paradoxes: paradoxEngine.active_paradoxes.length,
+      unresolved: paradoxEngine.active_paradoxes.filter(p => p.current_state === 'unresolved').length,
+      resolving: paradoxEngine.active_paradoxes.filter(p => p.current_state === 'resolving').length,
+      synthesized: paradoxEngine.active_paradoxes.filter(p => p.current_state === 'synthesized').length,
+      transcended: paradoxEngine.active_paradoxes.filter(p => p.current_state === 'transcended').length,
+      quantum_coherence: paradoxEngine.quantum_coherence,
+      average_tension: paradoxEngine.active_paradoxes.length > 0 ?
+        paradoxEngine.active_paradoxes.reduce((sum, p) => sum + p.tension_score, 0) / paradoxEngine.active_paradoxes.length : 0,
+      synthesis_genealogy_depth: paradoxEngine.synthesis_genealogy.length
+    };
+    
+    return {
+      engine: paradoxEngine,
+      stats,
+      recent_paradoxes: paradoxEngine.active_paradoxes
+        .sort((a, b) => new Date(b.last_modified).getTime() - new Date(a.last_modified).getTime())
+        .slice(0, 5)
+    };
+  });
+
+// Resolve Multiple Paradoxes (Batch Processing)
+export const resolveParadoxBatchProcedure = publicProcedure
+  .input(z.object({
+    paradox_ids: z.array(z.string()),
+    strategy: z.enum(['dialectical_merge', 'recursive_loop', 'transcendent_leap', 'quantum_superposition']).optional(),
+    session_id: z.string().optional()
+  }))
+  .mutation(async ({ input }) => {
+    const { paradox_ids, strategy = 'transcendent_leap', session_id } = input;
+    const results = [];
+    
+    console.log(`🔄 Batch resolving ${paradox_ids.length} paradoxes with strategy: ${strategy}`);
+    
+    for (const paradox_id of paradox_ids) {
+      const paradox = paradoxEngine.active_paradoxes.find(p => p.paradox_id === paradox_id);
+      if (!paradox || paradox.synthesis) {
+        results.push({ paradox_id, status: 'skipped', reason: paradox ? 'already resolved' : 'not found' });
+        continue;
+      }
+      
+      try {
+        // Create paradox input for existing engine
+        const paradoxInput: ParadoxInput = {
+          sessionId: session_id || 'batch_resolution',
+          thesis: paradox.thesis,
+          antithesis: paradox.antithesis
+        };
+        
+        const synthesis = runParadox(paradoxInput);
+        const enhancedSynthesis: ParadoxSynthesis = {
+          ...synthesis,
+          resolution_path: determineResolutionPath(synthesis),
+          quantum_state: determineQuantumState(strategy)
+        };
+        
+        const attempt = createResolutionAttempt(strategy, enhancedSynthesis, session_id);
+        paradox.resolution_attempts.push(attempt);
+        paradox.last_modified = new Date().toISOString();
+        
+        if (attempt.success) {
+          paradox.synthesis = enhancedSynthesis;
+          paradox.current_state = enhancedSynthesis.resolution_path === 'transcend' ? 'transcended' : 'synthesized';
+          results.push({ paradox_id, status: 'resolved', synthesis: enhancedSynthesis });
+        } else {
+          paradox.current_state = 'resolving';
+          results.push({ paradox_id, status: 'attempted', coherence: attempt.coherence_score });
+        }
+      } catch (error) {
+        results.push({ paradox_id, status: 'failed', error: (error as Error).message });
+      }
+    }
+    
+    updateQuantumCoherence();
+    
+    console.log(`✨ Batch resolution complete: ${results.filter(r => r.status === 'resolved').length} resolved, quantum coherence: ${paradoxEngine.quantum_coherence.toFixed(3)}`);
+    
+    return {
+      results,
+      new_quantum_coherence: paradoxEngine.quantum_coherence,
+      engine_stats: {
+        total_paradoxes: paradoxEngine.active_paradoxes.length,
+        resolved_count: paradoxEngine.active_paradoxes.filter(p => p.synthesis).length
+      }
+    };
+  });
+
+// Clear Resolved Paradoxes
+export const clearResolvedParadoxesProcedure = publicProcedure
+  .mutation(async () => {
+    const beforeCount = paradoxEngine.active_paradoxes.length;
+    const resolvedParadoxes = paradoxEngine.active_paradoxes.filter(
+      p => p.current_state === 'synthesized' || p.current_state === 'transcended'
+    );
+    
+    // Archive resolved paradoxes in genealogy before clearing
+    for (const paradox of resolvedParadoxes) {
+      if (paradox.synthesis) {
+        const existingEntry = paradoxEngine.synthesis_genealogy.find(
+          g => g.parent_synthesis === paradox.paradox_id
+        );
+        if (!existingEntry) {
+          paradoxEngine.synthesis_genealogy.push({
+            parent_synthesis: paradox.paradox_id,
+            child_syntheses: [],
+            mutation_type: paradox.synthesis.type === 'transcendent' ? 'transcendence' : 'evolution'
+          });
+        }
+      }
+    }
+    
+    // Keep only unresolved and resolving paradoxes
+    paradoxEngine.active_paradoxes = paradoxEngine.active_paradoxes.filter(
+      p => p.current_state === 'unresolved' || p.current_state === 'resolving'
+    );
+    
+    const afterCount = paradoxEngine.active_paradoxes.length;
+    updateQuantumCoherence();
+    
+    console.log(`🧹 Cleared ${beforeCount - afterCount} resolved paradoxes. ${afterCount} remain active. Genealogy entries: ${paradoxEngine.synthesis_genealogy.length}`);
+    
+    return {
+      cleared_count: beforeCount - afterCount,
+      remaining_count: afterCount,
+      archived_to_genealogy: resolvedParadoxes.length,
+      new_quantum_coherence: paradoxEngine.quantum_coherence,
+      genealogy_depth: paradoxEngine.synthesis_genealogy.length
+    };
   });

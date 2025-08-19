@@ -119,6 +119,44 @@ export interface ParadoxSynthesis {
   metrics: ParadoxMetrics;
   contentHash: string;       // integrity hash of synthesis
   timestamp: string;
+  resolution_path: 'collapse' | 'transcend' | 'sustain';
+  quantum_state?: 'superposition' | 'entangled' | 'collapsed';
+}
+
+// Enhanced Paradox Resolution Types
+export interface ParadoxResolution {
+  paradox_id: string;
+  thesis: string;
+  antithesis: string;
+  synthesis?: ParadoxSynthesis;
+  tension_score: number; // 0-100
+  resolution_attempts: ResolutionAttempt[];
+  current_state: 'unresolved' | 'resolving' | 'synthesized' | 'transcended';
+  created_at: string;
+  last_modified: string;
+}
+
+export interface ResolutionAttempt {
+  attempt_id: string;
+  strategy: 'dialectical_merge' | 'recursive_loop' | 'transcendent_leap' | 'quantum_superposition';
+  input_context: Record<string, any>;
+  generated_synthesis: string;
+  coherence_score: number;
+  emotional_resonance: EmotionalVector;
+  success: boolean;
+  failure_reason?: string;
+  timestamp: string;
+}
+
+export interface ParadoxEngine {
+  active_paradoxes: ParadoxResolution[];
+  resolution_patterns: MemoryPattern[];
+  synthesis_genealogy: {
+    parent_synthesis: string;
+    child_syntheses: string[];
+    mutation_type: 'evolution' | 'contradiction' | 'transcendence';
+  }[];
+  quantum_coherence: number; // overall system coherence across all paradoxes
 }
 
 // Request/Response Types

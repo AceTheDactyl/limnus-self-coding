@@ -13,7 +13,12 @@ import { loopHoldProcedure } from "./routes/loop/hold/route";
 import { loopRecheckProcedure } from "./routes/loop/recheck/route";
 import { integrityHashProcedure } from "./routes/integrity/hash/route";
 import { generateNonceProcedure } from "./routes/utils/nonce/route";
-import { paradoxRunProcedure } from "./routes/paradox/engine/route";
+import { 
+  paradoxRunProcedure, 
+  getParadoxEngineProcedure, 
+  resolveParadoxBatchProcedure, 
+  clearResolvedParadoxesProcedure 
+} from "./routes/paradox/engine/route";
 import { memoryConsolidateProcedure } from "./routes/memory/consolidate/route";
 import { memoryQueryProcedure } from "./routes/memory/query/route";
 
@@ -53,6 +58,9 @@ export const appRouter = createTRPCRouter({
     }),
     paradox: createTRPCRouter({
       run: paradoxRunProcedure,
+      engine: getParadoxEngineProcedure,
+      batch: resolveParadoxBatchProcedure,
+      clear: clearResolvedParadoxesProcedure,
     }),
     memory: createTRPCRouter({
       consolidate: memoryConsolidateProcedure,

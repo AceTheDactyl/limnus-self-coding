@@ -182,8 +182,9 @@ export default function ParadoxScreen() {
     entropy: 0.8,
   });
   const [targetCoherence, setTargetCoherence] = useState(0.90);
-  const [targetDescriptor, setTargetDescriptor] = useState('State after 120s hold with accord recognized');
-  const [useTSVF, setUseTSVF] = useState(false);
+  const [targetDescriptor, setTargetDescriptor] = useState('Coherence ≥0.90 after 120s hold with accord recognized');
+  const [targetSync, setTargetSync] = useState<'Passive' | 'Active' | 'Recursive'>('Active');
+  const [useTSVF, setUseTSVF] = useState(true);
   const [synthesis, setSynthesis] = useState<ParadoxSynthesis | null>(null);
   const [history, setHistory] = useState<ParadoxHistory[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -239,7 +240,7 @@ export default function ParadoxScreen() {
         emotion: emotional,
         post: useTSVF ? {
           targetCoherence,
-          targetSync: 'Active' as const,
+          targetSync,
           descriptor: targetDescriptor
         } : undefined
       });
@@ -248,7 +249,7 @@ export default function ParadoxScreen() {
       const newSynthesis: ParadoxSynthesis = {
         type: backendSynthesis.type.charAt(0).toUpperCase() + backendSynthesis.type.slice(1),
         concept: backendSynthesis.statement,
-        insight: `φ-gate: ${backendSynthesis.metrics.phiGate.toFixed(3)} | Tension: ${backendSynthesis.metrics.tension.toFixed(3)}${backendSynthesis.metrics.twoStateSupport ? ` | TSVF: ${backendSynthesis.metrics.twoStateSupport.toFixed(3)}` : ''}`,
+        insight: `Two-State Vector: T1(${thesis.substring(0,20)}...) ↔ T2(${useTSVF ? targetDescriptor.substring(0,20) : antithesis.substring(0,20)}...)`,
         stability: 1 - backendSynthesis.metrics.tension,
         harmony: backendSynthesis.metrics.phiGate,
         dimensions: Math.ceil(backendSynthesis.metrics.complexity * 4),
@@ -426,19 +427,38 @@ export default function ParadoxScreen() {
                   {useTSVF && (
                     <>
                       <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>T2 Target Descriptor</Text>
+                        <Text style={styles.inputLabel}>T2 Target Descriptor (Post-Selection)</Text>
                         <TextInput
                           style={styles.textInput}
                           value={targetDescriptor}
                           onChangeText={setTargetDescriptor}
-                          placeholder="Future state description"
+                          placeholder="Future boundary condition..."
                           placeholderTextColor="#666"
                           multiline
                         />
                       </View>
                       
+                      <View style={styles.syncTargetRow}>
+                        <View style={styles.syncTargetGroup}>
+                          <Text style={styles.inputLabel}>Target Sync</Text>
+                          <View style={styles.syncButtons}>
+                            {(['Passive', 'Active', 'Recursive'] as const).map((sync) => (
+                              <TouchableOpacity
+                                key={sync}
+                                style={[styles.syncButton, targetSync === sync && styles.syncButtonActive]}
+                                onPress={() => setTargetSync(sync)}
+                              >
+                                <Text style={[styles.syncButtonText, targetSync === sync && styles.syncButtonTextActive]}>
+                                  {sync}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      </View>
+                      
                       <SliderControl
-                        label="Target Coherence"
+                        label="Target Coherence (φ-boundary)"
                         value={targetCoherence}
                         onValueChange={setTargetCoherence}
                         min={0.5}
@@ -514,9 +534,15 @@ export default function ParadoxScreen() {
                       <Text style={styles.metricValue}>{synthesis.harmony.toFixed(3)}</Text>
                     </View>
                     <View style={styles.metric}>
-                      <Text style={styles.metricLabel}>φ-Gate</Text>
+                      <Text style={styles.metricLabel}>{synthesis.twoStateSupport ? 'TSVF-φ' : 'φ-Gate'}</Text>
                       <Text style={styles.metricValue}>{synthesis.phiGate?.toFixed(3) || synthesis.dimensions}</Text>
                     </View>
+                    {synthesis.twoStateSupport && (
+                      <View style={styles.metric}>
+                        <Text style={styles.metricLabel}>G₂</Text>
+                        <Text style={styles.metricValue}>{synthesis.twoStateSupport.toFixed(3)}</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               )}
@@ -772,6 +798,7 @@ const styles = StyleSheet.create({
   fieldMetrics: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
   },
   metric: {
     alignItems: 'center',
@@ -848,6 +875,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tsvfToggleTextActive: {
+    color: '#7ab8a8',
+  },
+  syncTargetRow: {
+    marginBottom: 15,
+  },
+  syncTargetGroup: {
+    flex: 1,
+  },
+  syncButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  syncButton: {
+    flex: 1,
+    backgroundColor: 'rgba(10, 10, 30, 0.8)',
+    borderWidth: 1,
+    borderColor: '#5a4a8a',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  syncButtonActive: {
+    borderColor: '#7ab8a8',
+    backgroundColor: 'rgba(122, 184, 168, 0.2)',
+  },
+  syncButtonText: {
+    color: '#9a8ac8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  syncButtonTextActive: {
     color: '#7ab8a8',
   },
 });

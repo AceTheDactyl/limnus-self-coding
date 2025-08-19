@@ -22,6 +22,7 @@ import {
 import { router } from 'expo-router';
 import { useLimnus } from '@/providers/limnus-provider';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MemoryTracker } from '@/components/MemoryTracker';
 
 export default function SessionScreen() {
   const { currentSession, sessionPhase, clearSession } = useLimnus();
@@ -139,6 +140,17 @@ export default function SessionScreen() {
               <Text style={styles.metricValue}>≥90%</Text>
             </View>
           </View>
+
+          {/* Memory Constellation Tracker */}
+          {currentSession && (
+            <MemoryTracker 
+              sessionId={currentSession.sessionId}
+              currentPhase={sessionPhase}
+              onMemoryUpdate={(data) => {
+                console.log('[SESSION] Memory update:', data);
+              }}
+            />
+          )}
 
           <View style={styles.phasesContainer}>
             <Text style={styles.sectionTitle}>Orchestration Phases</Text>

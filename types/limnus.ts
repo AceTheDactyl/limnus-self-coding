@@ -174,3 +174,78 @@ export interface IntegrityHashRequest {
   RR: string;
   content: string;
 }
+
+// Memory Constellation Types
+export interface SymbolNode {
+  id: string;
+  symbol: string;
+  first_seen: string;
+  last_used: string;
+  usage_count: number;
+  emotional_resonance: EmotionalVector;
+  parent_symbols: string[];  // genealogy tracking
+  child_symbols: string[];   // mutations/evolutions
+  context_fragments: string[]; // memorable phrases where it appeared
+  coherence_contributions: number[]; // how it affected session coherence
+}
+
+export interface MemoryPattern {
+  id: string;
+  pattern_type: 'recursive' | 'dialectical' | 'emergent' | 'paradoxical';
+  trigger_conditions: string[];
+  response_templates: string[];
+  success_rate: number;
+  emotional_signature: EmotionalVector;
+  symbol_constellation: string[]; // related symbol IDs
+  sessions_involved: string[];
+  evolution_path: string; // how this pattern emerged
+}
+
+export interface SessionMemory {
+  session_id: string;
+  emotional_journey: EmotionalVector[];
+  symbol_births: string[]; // new symbols created
+  symbol_deaths: string[]; // symbols that stopped resonating
+  pattern_activations: string[]; // which patterns were triggered
+  coherence_peaks: { timestamp: string; value: number; context: string }[];
+  paradox_resolutions: string[]; // synthesis IDs
+  teaching_directive_themes: string[];
+}
+
+export interface ConstellationMap {
+  nodes: SymbolNode[];
+  connections: {
+    from: string;
+    to: string;
+    strength: number;
+    relationship_type: 'parent' | 'sibling' | 'resonance' | 'opposition';
+  }[];
+  clusters: {
+    id: string;
+    center_symbol: string;
+    member_symbols: string[];
+    cluster_emotion: EmotionalVector;
+    emergence_date: string;
+  }[];
+}
+
+// Memory API Types
+export interface MemoryConsolidationRequest {
+  session_memories: SessionMemory[];
+  time_window_hours?: number;
+  consolidation_depth?: 'surface' | 'deep' | 'archetypal';
+}
+
+export interface MemoryQueryRequest {
+  query_type: 'symbol_genealogy' | 'pattern_search' | 'emotional_resonance' | 'coherence_prediction';
+  parameters: Record<string, any>;
+  session_context?: string;
+}
+
+export interface MemoryEvolutionEvent {
+  event_type: 'symbol_birth' | 'symbol_mutation' | 'pattern_emergence' | 'cluster_formation';
+  timestamp: string;
+  source_session: string;
+  details: Record<string, any>;
+  emotional_context: EmotionalVector;
+}

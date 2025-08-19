@@ -22,8 +22,8 @@ export default function LoopScreen() {
   const [timeRemaining, setTimeRemaining] = useState(HOLD_DURATION);
   const [isHolding, setIsHolding] = useState(true);
   const [loopResult, setLoopResult] = useState<'merged' | 'deferred' | 'rejected' | null>(null);
-  const [coherenceBefore, setCoherenceBefore] = useState(82);
-  const [coherenceAfter, setCoherenceAfter] = useState(82);
+  const [coherenceBefore, setCoherenceBefore] = useState(0.82);
+  const [coherenceAfter, setCoherenceAfter] = useState(0.82);
 
   
   const rotateAnim = useMemo(() => new Animated.Value(0), []);
@@ -43,7 +43,7 @@ export default function LoopScreen() {
       });
       
       console.log('[LOOP] Hold started:', result);
-      setCoherenceBefore(Math.round(result.coherence_before_after.before * 100));
+      setCoherenceBefore(result.coherence_before_after.before);
     } catch (error) {
       console.error('[LOOP] Failed to start hold:', error);
       
@@ -51,7 +51,7 @@ export default function LoopScreen() {
       if (error instanceof Error && error.name === 'BackendConnectionError') {
         console.error('[LOOP] Backend server connection failed. Please ensure the server is running.');
         // Set some default values to allow the UI to continue
-        setCoherenceBefore(82);
+        setCoherenceBefore(0.82);
       }
     }
   }, [currentSession, holdMutation]);
@@ -67,11 +67,11 @@ export default function LoopScreen() {
       
       console.log('[LOOP] Recheck completed:', result);
       setLoopResult(result.result);
-      setCoherenceAfter(Math.round(result.coherence_before_after.after * 100));
+      setCoherenceAfter(result.coherence_before_after.after);
       
       // Calculate coherence delta for display
-      const delta = Math.round((result.coherence_before_after.after - result.coherence_before_after.before) * 100);
-      console.log('[LOOP] Coherence delta:', delta);
+      const delta = (result.coherence_before_after.after - result.coherence_before_after.before) * 100;
+      console.log('[LOOP] Coherence delta:', delta.toFixed(1) + '%');
     } catch (error) {
       console.error('[LOOP] Failed to perform recheck:', error);
       
@@ -80,7 +80,7 @@ export default function LoopScreen() {
         console.error('[LOOP] Backend server connection failed. Using fallback result.');
         // Set a fallback result when backend is unavailable
         setLoopResult('deferred');
-        setCoherenceAfter(85); // Slight improvement for demo
+        setCoherenceAfter(0.85); // Slight improvement for demo
       } else {
         setLoopResult('rejected');
       }
@@ -335,7 +335,7 @@ export default function LoopScreen() {
             <View style={styles.coherenceCard}>
               <View style={styles.coherenceRow}>
                 <Text style={styles.coherenceLabel}>Before</Text>
-                <Text style={styles.coherenceValue}>{coherenceBefore}%</Text>
+                <Text style={styles.coherenceValue}>{Math.round(coherenceBefore * 100)}%</Text>
               </View>
               <View style={styles.coherenceArrow}>
                 <Text style={styles.arrowText}>→</Text>
@@ -346,7 +346,7 @@ export default function LoopScreen() {
                   styles.coherenceValue,
                   { color: coherenceAfter > coherenceBefore ? '#4CAF50' : coherenceAfter < coherenceBefore ? '#FF5722' : '#FF9800' }
                 ]}>
-                  {coherenceAfter}%
+                  {Math.round(coherenceAfter * 100)}%
                 </Text>
               </View>
             </View>
@@ -355,7 +355,7 @@ export default function LoopScreen() {
                 styles.coherenceDelta,
                 { color: coherenceAfter > coherenceBefore ? '#4CAF50' : '#FF5722' }
               ]}>
-                {coherenceAfter > coherenceBefore ? '+' : ''}{coherenceAfter - coherenceBefore}% {coherenceAfter > coherenceBefore ? 'improvement' : 'decline'}
+                {coherenceAfter > coherenceBefore ? '+' : ''}{Math.round((coherenceAfter - coherenceBefore) * 100)}% {coherenceAfter > coherenceBefore ? 'improvement' : 'decline'}
               </Text>
             )}
           </View>

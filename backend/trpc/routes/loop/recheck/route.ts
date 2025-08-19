@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { publicProcedure } from '../../../create-context';
-import { clearHold } from '../hold/route';
+import { clearHold, getHoldCoherence } from '../hold/route';
 import type { LoopEvent } from '@/types/limnus';
 
 const loopRecheckSchema = z.object({
@@ -12,11 +12,13 @@ export const loopRecheckProcedure = publicProcedure
   .mutation(async ({ input }): Promise<LoopEvent> => {
     console.log('[LIMNUS] Loop recheck for session:', input.session_id);
     
+    // Get the coherence value from the hold procedure
+    const coherenceBefore = getHoldCoherence(input.session_id) || (0.82 + Math.random() * 0.15);
+    
     // Clear the server-side hold timer since recheck is happening
     clearHold(input.session_id);
     
     const now = new Date();
-    const coherenceBefore = 0.82 + Math.random() * 0.15; // 0.82-0.97
     
     // Highly favorable coherence calculation with strong improvement bias
     const naturalVariation = (Math.random() - 0.5) * 0.08; // ±4% natural variation

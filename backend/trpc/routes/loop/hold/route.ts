@@ -8,7 +8,7 @@ const loopHoldSchema = z.object({
 });
 
 // Store active holds for server-side timer fallback
-const activeHolds = new Map<string, { startTime: number; duration: number; timerId?: NodeJS.Timeout }>();
+const activeHolds = new Map<string, { startTime: number; duration: number; coherenceBefore: number; timerId?: NodeJS.Timeout }>();
 
 export const loopHoldProcedure = publicProcedure
   .input(loopHoldSchema)
@@ -33,6 +33,7 @@ export const loopHoldProcedure = publicProcedure
     activeHolds.set(input.session_id, {
       startTime: holdStartedAt.getTime(),
       duration: input.duration,
+      coherenceBefore: coherenceBefore,
       timerId
     });
     
@@ -58,6 +59,12 @@ export function isHoldActive(sessionId: string): boolean {
   
   const elapsed = Date.now() - hold.startTime;
   return elapsed < hold.duration * 1000;
+}
+
+// Helper to get coherence from hold
+export function getHoldCoherence(sessionId: string): number | null {
+  const hold = activeHolds.get(sessionId);
+  return hold?.coherenceBefore || null;
 }
 
 // Helper to clear hold

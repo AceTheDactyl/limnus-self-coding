@@ -160,44 +160,43 @@ const SliderControl: React.FC<{
     const sliderWidth = 280;
     
     // Ensure locationX is a valid number
-    const safeLocationX = typeof locationX === 'number' && isFinite(locationX) ? locationX : 0;
-    
-    // Calculate percentage with bounds checking
-    const percentage = Math.max(0, Math.min(1, safeLocationX / sliderWidth));
+    const safeLocationX = typeof locationX === 'number' && isFinite(locationX) ? Math.max(0, locationX) : 0;
     
     // Ensure min and max are valid numbers
     const safeMin = typeof min === 'number' && isFinite(min) ? min : -1;
     const safeMax = typeof max === 'number' && isFinite(max) ? max : 1;
     
-    console.log('🎚️ Slider gesture:', { locationX: safeLocationX, percentage, min: safeMin, max: safeMax });
-    
     // Prevent division by zero or invalid range
     const range = safeMax - safeMin;
     if (range <= 0) {
-      console.warn('🎚️ Invalid range detected, using min value');
-      onValueChange(safeMin);
+      console.warn('🎚️ Invalid range detected, using default value');
+      const defaultValue = safeMin === -1 && safeMax === 1 ? 0 : (safeMin + safeMax) / 2;
+      onValueChange(defaultValue);
       return;
     }
     
+    // Calculate percentage with bounds checking
+    const percentage = Math.max(0, Math.min(1, safeLocationX / sliderWidth));
+    
     // Calculate new value with safety checks
-    const rawValue = safeMin + range * percentage;
+    const rawValue = safeMin + (range * percentage);
     
     // Validate and clamp the result
     let validValue: number;
     if (typeof rawValue !== 'number' || isNaN(rawValue) || !isFinite(rawValue)) {
-      validValue = (safeMin + safeMax) / 2; // Use midpoint as fallback
-      console.warn('🎚️ Invalid calculation, using midpoint:', validValue);
+      validValue = safeMin === -1 && safeMax === 1 ? 0 : (safeMin + safeMax) / 2;
+      console.warn('🎚️ Invalid calculation, using safe default:', validValue);
     } else {
-      validValue = Math.max(safeMin, Math.min(safeMax, parseFloat(rawValue.toFixed(2))));
+      validValue = Math.max(safeMin, Math.min(safeMax, Number(rawValue.toFixed(2))));
     }
     
     // Final safety check
     if (typeof validValue !== 'number' || isNaN(validValue) || !isFinite(validValue)) {
       console.error('🎚️ Final validation failed, using safe fallback');
-      validValue = safeMin;
+      validValue = safeMin === -1 && safeMax === 1 ? 0 : safeMin;
     }
     
-    console.log('🎚️ Slider value change:', { from: value, to: validValue });
+    console.log('🎚️ Slider value change:', { from: value, to: validValue, locationX: safeLocationX, percentage });
     onValueChange(validValue);
   };
 
@@ -212,14 +211,17 @@ const SliderControl: React.FC<{
           style={[
             styles.sliderFill,
             {
-              width: `${Math.max(0, Math.min(100, 
-                typeof value === 'number' && isFinite(value) && 
-                typeof min === 'number' && isFinite(min) && 
-                typeof max === 'number' && isFinite(max) && 
-                max !== min
-                  ? ((value - min) / (max - min)) * 100
-                  : 0
-              ))}%`,
+              width: `${(() => {
+                const safeValue = typeof value === 'number' && isFinite(value) ? value : 0;
+                const safeMin = typeof min === 'number' && isFinite(min) ? min : -1;
+                const safeMax = typeof max === 'number' && isFinite(max) ? max : 1;
+                const range = safeMax - safeMin;
+                
+                if (range <= 0) return 0;
+                
+                const percentage = ((safeValue - safeMin) / range) * 100;
+                return Math.max(0, Math.min(100, percentage));
+              })()}%`,
             },
           ]}
         />
@@ -227,20 +229,26 @@ const SliderControl: React.FC<{
           style={[
             styles.sliderThumb,
             {
-              left: `${Math.max(0, Math.min(100, 
-                typeof value === 'number' && isFinite(value) && 
-                typeof min === 'number' && isFinite(min) && 
-                typeof max === 'number' && isFinite(max) && 
-                max !== min
-                  ? ((value - min) / (max - min)) * 100
-                  : 0
-              ))}%`,
+              left: `${(() => {
+                const safeValue = typeof value === 'number' && isFinite(value) ? value : 0;
+                const safeMin = typeof min === 'number' && isFinite(min) ? min : -1;
+                const safeMax = typeof max === 'number' && isFinite(max) ? max : 1;
+                const range = safeMax - safeMin;
+                
+                if (range <= 0) return 0;
+                
+                const percentage = ((safeValue - safeMin) / range) * 100;
+                return Math.max(0, Math.min(100, percentage));
+              })()}%`,
             },
           ]}
         />
       </View>
       <Text style={styles.sliderValue}>
-        {typeof value === 'number' && isFinite(value) ? value.toFixed(1) : '0.0'}
+        {(() => {
+          const safeValue = typeof value === 'number' && isFinite(value) ? value : 0;
+          return safeValue.toFixed(1);
+        })()}
       </Text>
     </View>
   );

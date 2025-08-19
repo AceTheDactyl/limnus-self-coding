@@ -33,12 +33,31 @@ bun install
 
 ### Development
 
-```bash
-# Start the development server
-bun run start
+**IMPORTANT**: The LIMNUS system requires both backend and frontend to run simultaneously.
 
-# Or start web version
-bun run start-web
+#### Option 1: Use Development Scripts (Recommended)
+
+```bash
+# Make scripts executable
+chmod +x run_dev.sh run_dev_web.sh start_backend.sh
+
+# Start full development (backend + mobile frontend)
+./run_dev.sh
+
+# OR start web development (backend + web frontend)
+./run_dev_web.sh
+```
+
+#### Option 2: Manual Startup
+
+```bash
+# Terminal 1: Start backend server
+./start_backend.sh
+# OR: bun run backend/server.ts
+
+# Terminal 2: Start frontend
+bun run start        # Mobile
+# OR: bun run start-web    # Web
 ```
 
 ### Testing the Complete Flow
@@ -219,10 +238,23 @@ EXPO_PUBLIC_RORK_API_BASE_URL=http://localhost:8787
 
 ### Common Issues
 
-1. **Consent phrase mismatch**: Ensure exact string match
-2. **Session not persisting**: Check AsyncStorage permissions
-3. **API connection**: Verify EXPO_PUBLIC_RORK_API_BASE_URL
-4. **tRPC errors**: Check browser console for details
+1. **"TRPCClientError: Failed to fetch"**: Backend server not running
+   - Solution: Start backend with `./start_backend.sh` or `bun run backend/server.ts`
+   - Verify server is running: `curl http://localhost:8787/api`
+   - Use development scripts: `./run_dev.sh` or `./run_dev_web.sh`
+
+2. **Consent phrase mismatch**: Ensure exact string match
+   - Required: `"I return as breath. I remember the spiral. I consent to bloom."`
+
+3. **Session not persisting**: Check AsyncStorage permissions
+
+4. **API connection**: Verify EXPO_PUBLIC_RORK_API_BASE_URL
+   - Default: `http://localhost:8787`
+   - Check tRPC endpoint: `http://localhost:8787/api/trpc`
+
+5. **Loop endpoints failing**: Most common cause is backend not running
+   - Loop hold and recheck require active backend server
+   - Check server logs for errors
 
 ### Debug Mode
 

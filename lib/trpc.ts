@@ -34,6 +34,18 @@ export const trpcClient = trpc.createClient({
           console.error('[TRPC] Fetch error:', error);
           console.error('[TRPC] URL:', url);
           console.error('[TRPC] Options:', options);
+          
+          // Provide more helpful error messages
+          if (error.message.includes('Failed to fetch') || error.code === 'NETWORK_ERROR') {
+            const helpfulError = new Error(
+              `Cannot connect to LIMNUS backend server at ${baseUrl}. ` +
+              `Please ensure the backend server is running on port 8787. ` +
+              `You can start it with: bun run backend/server.ts`
+            );
+            helpfulError.name = 'BackendConnectionError';
+            throw helpfulError;
+          }
+          
           throw error;
         });
       },
